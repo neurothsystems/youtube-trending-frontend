@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState } from 'react'
-import { Search, TrendingUp, Download, Play, Users, Clock, ThumbsUp, MessageCircle } from 'lucide-react'
+import { Search, TrendingUp, Download, Play, Clock, ThumbsUp, MessageCircle } from 'lucide-react'
 
 // API Types und Functions direkt im Code
 const API_BASE = 'https://youtube-trending-api-kc53.onrender.com'
@@ -212,7 +212,7 @@ const Tabs = ({ children, defaultValue }: { children: React.ReactNode; defaultVa
     <div className="w-full">
       {React.Children.map(children, child => {
         if (React.isValidElement(child)) {
-          return React.cloneElement(child as any, { activeTab, setActiveTab });
+          return React.cloneElement(child as React.ReactElement<{ activeTab?: string; setActiveTab?: (tab: string) => void }>, { activeTab, setActiveTab });
         }
         return child;
       })}
@@ -224,7 +224,7 @@ const TabsList = ({ children, activeTab, setActiveTab }: { children: React.React
   <div className="inline-flex h-10 items-center justify-center rounded-md bg-gray-100 p-1 text-gray-600">
     {React.Children.map(children, child => {
       if (React.isValidElement(child)) {
-        return React.cloneElement(child as any, { activeTab, setActiveTab });
+        return React.cloneElement(child as React.ReactElement<{ activeTab?: string; setActiveTab?: (tab: string) => void }>, { activeTab, setActiveTab });
       }
       return child;
     })}
@@ -261,7 +261,12 @@ export default function HomePage() {
   const [results, setResults] = useState<TrendingVideo[] | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [analysisInfo, setAnalysisInfo] = useState<any>(null)
+  const [analysisInfo, setAnalysisInfo] = useState<{
+    analyzed_videos: number;
+    algorithm: string;
+    timestamp: string;
+    parameters?: SearchParams;
+  } | null>(null)
 
   const handleSearch = async () => {
     if (!searchQuery.trim()) return
@@ -510,7 +515,7 @@ export default function HomePage() {
                   <div>
                     <CardTitle className="flex items-center gap-2">
                       <TrendingUp className="h-5 w-5" />
-                      Trending Ergebnisse für "{searchQuery}"
+                      Trending Ergebnisse für &quot;{searchQuery}&quot;
                     </CardTitle>
                     <CardDescription>
                       {analysisInfo?.analyzed_videos} Videos analysiert • {results.length} Top Trending Videos gefunden
