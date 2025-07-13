@@ -226,11 +226,11 @@ const Badge = ({
   );
 };
 
-const Tabs = ({ children, defaultValue }: { children: React.ReactNode; defaultValue: string }) => {
+const Tabs = ({ children, defaultValue, className = '' }: { children: React.ReactNode; defaultValue: string; className?: string }) => {
   const [activeTab, setActiveTab] = useState(defaultValue);
   
   return (
-    <div className="w-full">
+    <div className={`w-full ${className}`}>
       {React.Children.map(children, child => {
         if (React.isValidElement(child)) {
           return React.cloneElement(child as React.ReactElement<{ activeTab?: string; setActiveTab?: (tab: string) => void }>, { activeTab, setActiveTab });
