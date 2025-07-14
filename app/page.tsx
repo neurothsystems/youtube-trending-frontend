@@ -82,7 +82,7 @@ const convertResultsToCSV = (videos: TrendingVideo[]): string => {
     'Thumbnail'
   ].join(',')
   
-  const rows = videos.map((video, index) => [
+  const rows = videos.map((video) => [
     video.rank,
     `"${video.title.replace(/"/g, '""')}"`, // Escape quotes
     `"${video.channel.replace(/"/g, '""')}"`,
