@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState } from 'react'
-import { Search, TrendingUp, Download, Play, Clock, ThumbsUp, MessageCircle } from 'lucide-react'
+import { Search, TrendingUp, Download, Play, Clock, ThumbsUp, MessageCircle, Globe } from 'lucide-react'
 
 // API Types und Functions direkt im Code
 const API_BASE = 'https://youtube-trending-api-kc53.onrender.com'
@@ -19,6 +19,7 @@ interface TrendingVideo {
   engagement_rate: number;
   url: string;
   publish_date?: string;
+  thumbnail?: string;
 }
 
 interface SearchParams {
@@ -27,6 +28,7 @@ interface SearchParams {
   top_count?: number;
   min_duration?: number;
   sort_by?: 'trending_score' | 'views' | 'engagement' | 'age';
+  region?: string;
 }
 
 interface AnalyzeResponse {
@@ -34,7 +36,6 @@ interface AnalyzeResponse {
   query: string;
   analyzed_videos: number;
   top_videos: TrendingVideo[];
-  algorithm: string;
   timestamp: string;
   parameters?: SearchParams;
 }
@@ -53,6 +54,9 @@ const analyzeVideos = async (params: SearchParams): Promise<AnalyzeResponse> => 
   if (params.sort_by) {
     url.searchParams.append('sort_by', params.sort_by);
   }
+  if (params.region && params.region !== '') {
+    url.searchParams.append('region', params.region);
+  }
 
   const response = await fetch(url.toString());
   if (!response.ok) {
@@ -70,28 +74,37 @@ const convertResultsToCSV = (videos: TrendingVideo[]): string => {
     'Views',
     'Likes',
     'Comments',
-    'Trending Score',
+    'Score (von 10)',
     'Age Hours',
     'Duration',
     'Engagement Rate',
-    'URL'
+    'URL',
+    'Thumbnail'
   ].join(',')
   
-  const rows = videos.map(video => [
+  const rows = videos.map((video, index) => [
     video.rank,
     `"${video.title.replace(/"/g, '""')}"`, // Escape quotes
     `"${video.channel.replace(/"/g, '""')}"`,
     video.views,
     video.likes,
     video.comments,
-    Math.round(video.trending_score),
+    calculateNormalizedScore(video.trending_score, videos[0]?.trending_score || 1),
     video.age_hours,
     video.duration_formatted,
     (video.engagement_rate * 100).toFixed(2) + '%',
-    video.url
+    video.url,
+    video.thumbnail || ''
   ].join(','))
   
   return [headers, ...rows].join('\n')
+}
+
+// Normalisierte Score-Berechnung (10-Punkte-System)
+const calculateNormalizedScore = (currentScore: number, topScore: number): string => {
+  if (topScore === 0) return "0.0"
+  const normalized = (currentScore / topScore) * 10
+  return normalized.toFixed(1)
 }
 
 // CSV-Download-Funktion
@@ -264,20 +277,28 @@ const TabsContent = ({ value, children, className = '', activeTab }: { value: st
   </div>
 );
 
+// Score-Farben für 10-Punkte-System
+const getScoreColor = (normalizedScore: number) => {
+  if (normalizedScore >= 8) return 'bg-green-500'
+  if (normalizedScore >= 6) return 'bg-yellow-500'
+  if (normalizedScore >= 4) return 'bg-orange-500'
+  return 'bg-red-500'
+}
+
 export default function HomePage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [searchParams, setSearchParams] = useState<SearchParams>({
     query: '',
     days: 2,
-    top_count: 10,
-    min_duration: 4
+    top_count: 12,
+    min_duration: 4,
+    region: 'DE'
   })
   const [results, setResults] = useState<TrendingVideo[] | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [analysisInfo, setAnalysisInfo] = useState<{
     analyzed_videos: number;
-    algorithm: string;
     timestamp: string;
     parameters?: SearchParams;
   } | null>(null)
@@ -293,10 +314,9 @@ export default function HomePage() {
       const response = await analyzeVideos(params)
       
       if (response.success) {
-        setResults(response.top_videos) // Backend-Sortierung vertrauen - keine zusätzliche Sortierung!
+        setResults(response.top_videos)
         setAnalysisInfo({
           analyzed_videos: response.analyzed_videos,
-          algorithm: response.algorithm,
           timestamp: response.timestamp,
           parameters: response.parameters
         })
@@ -313,7 +333,6 @@ export default function HomePage() {
   const handleExportCSV = async () => {
     if (!results) return
     try {
-      // Export Frontend-Daten - was User sieht
       const csvContent = convertResultsToCSV(results)
       const filename = `youtube_trending_${searchQuery}_${new Date().toISOString().split('T')[0]}.csv`
       downloadCSVContent(csvContent, filename)
@@ -325,7 +344,6 @@ export default function HomePage() {
   const handleExportExcel = async () => {
     if (!results) return
     try {
-      // Export Frontend-Daten als CSV (Excel-Feature für Phase C)
       const csvContent = convertResultsToCSV(results)
       const filename = `youtube_trending_${searchQuery}_${new Date().toISOString().split('T')[0]}.csv`
       downloadCSVContent(csvContent, filename)
@@ -340,11 +358,25 @@ export default function HomePage() {
     return num.toString()
   }
 
-  const getScoreColor = (score: number) => {
-    if (score > 100000) return 'bg-red-500'
-    if (score > 50000) return 'bg-orange-500'
-    if (score > 10000) return 'bg-yellow-500'
-    return 'bg-green-500'
+  const getRegionName = (code: string) => {
+    const regions: { [key: string]: string } = {
+      '': '🌍 Weltweit',
+      'DE': '🇩🇪 Deutschland',
+      'AT': '🇦🇹 Österreich',
+      'CH': '🇨🇭 Schweiz',
+      'US': '🇺🇸 USA',
+      'GB': '🇬🇧 Großbritannien',
+      'FR': '🇫🇷 Frankreich',
+      'ES': '🇪🇸 Spanien',
+      'IT': '🇮🇹 Italien',
+      'NL': '🇳🇱 Niederlande',
+      'PL': '🇵🇱 Polen',
+      'BR': '🇧🇷 Brasilien',
+      'JP': '🇯🇵 Japan',
+      'KR': '🇰🇷 Südkorea',
+      'IN': '🇮🇳 Indien'
+    };
+    return regions[code] || '🌍 Weltweit';
   }
 
   return (
@@ -359,7 +391,7 @@ export default function HomePage() {
                 YouTube Trending Analyzer Pro
               </h1>
             </div>
-            <Button variant="outline" onClick={() => alert('In deinem echten Projekt: window.location.href = "/test"')}>
+            <Button variant="outline" onClick={() => window.open('https://youtube-trending-api-kc53.onrender.com', '_blank')}>
               🔧 System Test
             </Button>
           </div>
@@ -381,11 +413,11 @@ export default function HomePage() {
             <div className="flex justify-center gap-8 text-sm text-gray-500 mb-8">
               <div className="flex items-center gap-2">
                 <TrendingUp className="h-4 w-4" />
-                Echter Trending-Score
+                10-Punkte-System
               </div>
               <div className="flex items-center gap-2">
-                <Clock className="h-4 w-4" />
-                Echtzeit-Analyse
+                <Globe className="h-4 w-4" />
+                15 Länder verfügbar
               </div>
               <div className="flex items-center gap-2">
                 <Download className="h-4 w-4" />
@@ -434,7 +466,7 @@ export default function HomePage() {
                 </TabsList>
                 
                 <TabsContent value="basic" className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                     <div>
                       <label className="text-sm font-medium">Zeitraum</label>
                       <select 
@@ -456,10 +488,10 @@ export default function HomePage() {
                         value={searchParams.top_count}
                         onChange={(e) => setSearchParams(prev => ({ ...prev, top_count: Number(e.target.value) }))}
                       >
-                        <option value={5}>Top 5</option>
-                        <option value={10}>Top 10</option>
-                        <option value={20}>Top 20</option>
-                        <option value={50}>Top 50</option>
+                        <option value={6}>Top 6</option>
+                        <option value={12}>Top 12</option>
+                        <option value={18}>Top 18</option>
+                        <option value={24}>Top 24</option>
                       </select>
                     </div>
                     
@@ -476,25 +508,53 @@ export default function HomePage() {
                         <option value={600}>10+ Minuten</option>
                       </select>
                     </div>
+
+                    <div>
+                      <label className="text-sm font-medium">🌍 Region</label>
+                      <select 
+                        className="w-full mt-1 p-2 border rounded"
+                        value={searchParams.region}
+                        onChange={(e) => setSearchParams(prev => ({ ...prev, region: e.target.value }))}
+                      >
+                        <option value="">🌍 Weltweit</option>
+                        <option value="DE">🇩🇪 Deutschland</option>
+                        <option value="AT">🇦🇹 Österreich</option>
+                        <option value="CH">🇨🇭 Schweiz</option>
+                        <option value="US">🇺🇸 USA</option>
+                        <option value="GB">🇬🇧 Großbritannien</option>
+                        <option value="FR">🇫🇷 Frankreich</option>
+                        <option value="ES">🇪🇸 Spanien</option>
+                        <option value="IT">🇮🇹 Italien</option>
+                        <option value="NL">🇳🇱 Niederlande</option>
+                        <option value="PL">🇵🇱 Polen</option>
+                        <option value="BR">🇧🇷 Brasilien</option>
+                        <option value="JP">🇯🇵 Japan</option>
+                        <option value="KR">🇰🇷 Südkorea</option>
+                        <option value="IN">🇮🇳 Indien</option>
+                      </select>
+                    </div>
                   </div>
                 </TabsContent>
                 
                 <TabsContent value="advanced">
                   <div className="text-sm text-gray-600 p-4 bg-gray-50 rounded">
-                    Weitere Optionen wie Sortierung, Sprache und Region kommen in v2.1
+                    Weitere Optionen wie erweiterte Sortierung und Filterung kommen in Phase C
                   </div>
                 </TabsContent>
               </Tabs>
 
               {/* Quick Search Examples */}
               <div className="flex flex-wrap gap-2">
-                <span className="text-sm text-gray-500">Beispiele:</span>
+                <span className="text-sm text-gray-500">🚀 Beispiele:</span>
                 {['KI', 'Gaming', 'Musik', 'Tech News', 'Krypto'].map((example) => (
                   <Button
                     key={example}
                     variant="outline"
                     size="sm"
-                    onClick={() => setSearchQuery(example)}
+                    onClick={() => {
+                      setSearchQuery(example)
+                      setSearchParams(prev => ({ ...prev, query: example }))
+                    }}
                   >
                     {example}
                   </Button>
@@ -538,7 +598,7 @@ export default function HomePage() {
                       Trending Ergebnisse für &quot;{searchQuery}&quot;
                     </CardTitle>
                     <CardDescription>
-                      {analysisInfo?.analyzed_videos} Videos analysiert • {results.length} Top Trending Videos gefunden
+                      {analysisInfo?.analyzed_videos} Videos analysiert • {results.length} Top Trending Videos gefunden • {getRegionName(searchParams.region || '')}
                     </CardDescription>
                   </div>
                   <div className="flex gap-2">
@@ -555,103 +615,130 @@ export default function HomePage() {
               </CardHeader>
             </Card>
 
-            {/* Video Results */}
-            <div className="space-y-4">
-              {results.map((video, index) => (
-                <Card key={index} className="hover:shadow-lg transition-shadow">
-                  <CardContent className="pt-6">
-                    <div className="flex gap-4">
-                      {/* Rank Badge */}
-                      <div className="flex-shrink-0">
-                        <div className="w-12 h-12 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-lg">
-                          #{video.rank}
+            {/* Video Results - Grid Layout */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {results.map((video, index) => {
+                const normalizedScore = parseFloat(calculateNormalizedScore(video.trending_score, results[0]?.trending_score || 1))
+                return (
+                  <Card key={index} className="hover:shadow-xl transition-all duration-300 hover:-translate-y-1 overflow-hidden">
+                    <CardContent className="p-0">
+                      {/* Rank & Score Header */}
+                      <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-3 flex justify-between items-center">
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center font-bold">
+                            #{video.rank}
+                          </div>
+                          <span className="text-sm opacity-90">Platz {video.rank}</span>
+                        </div>
+                        <Badge className={`${getScoreColor(normalizedScore)} text-white border-none`}>
+                          {calculateNormalizedScore(video.trending_score, results[0]?.trending_score || 1)}/10
+                        </Badge>
+                      </div>
+
+                      {/* Thumbnail */}
+                      <div className="relative aspect-video bg-gray-200">
+                        <img 
+                          src={video.thumbnail || `https://img.youtube.com/vi/${video.url.split('v=')[1]?.split('&')[0]}/maxresdefault.jpg`}
+                          alt={video.title}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            e.currentTarget.src = 'https://via.placeholder.com/320x180/f3f4f6/9ca3af?text=YouTube+Video';
+                          }}
+                        />
+                        <div className="absolute bottom-2 right-2 bg-black/80 text-white px-2 py-1 rounded text-sm">
+                          {video.duration_formatted}
                         </div>
                       </div>
 
                       {/* Video Info */}
-                      <div className="flex-grow min-w-0">
-                        <div className="flex justify-between items-start mb-2">
-                          <h3 className="font-semibold text-gray-900 text-lg overflow-hidden" style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
-                            {video.title}
-                          </h3>
-                          <Badge 
-                            className={`ml-2 text-white ${getScoreColor(video.trending_score)}`}
-                          >
-                            {Math.round(video.trending_score)} Score
-                          </Badge>
-                        </div>
+                      <div className="p-4 space-y-3">
+                        <h3 className="font-semibold text-gray-900 text-sm leading-tight line-clamp-2">
+                          {video.title}
+                        </h3>
 
-                        <p className="text-gray-600 mb-3">📺 {video.channel}</p>
+                        <p className="text-gray-600 text-sm flex items-center gap-1">
+                          📺 {video.channel}
+                        </p>
 
-                        {/* Metrics */}
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                        {/* Metrics Grid */}
+                        <div className="grid grid-cols-2 gap-2 text-xs">
                           <div className="flex items-center gap-1">
-                            <Play className="h-4 w-4 text-gray-400" />
+                            <Play className="h-3 w-3 text-gray-400" />
                             <span className="font-medium">{formatNumber(video.views)}</span>
-                            <span className="text-gray-500">Views</span>
                           </div>
                           
                           <div className="flex items-center gap-1">
-                            <ThumbsUp className="h-4 w-4 text-gray-400" />
+                            <ThumbsUp className="h-3 w-3 text-gray-400" />
                             <span className="font-medium">{formatNumber(video.likes)}</span>
-                            <span className="text-gray-500">Likes</span>
                           </div>
                           
                           <div className="flex items-center gap-1">
-                            <MessageCircle className="h-4 w-4 text-gray-400" />
+                            <MessageCircle className="h-3 w-3 text-gray-400" />
                             <span className="font-medium">{formatNumber(video.comments)}</span>
-                            <span className="text-gray-500">Kommentare</span>
                           </div>
                           
                           <div className="flex items-center gap-1">
-                            <Clock className="h-4 w-4 text-gray-400" />
-                            <span className="font-medium">{video.duration_formatted}</span>
-                            <span className="text-gray-500">• {video.age_hours}h alt</span>
+                            <Clock className="h-3 w-3 text-gray-400" />
+                            <span className="font-medium">{video.age_hours}h alt</span>
                           </div>
                         </div>
 
-                        {/* Engagement Rate */}
-                        <div className="mt-3 flex items-center justify-between">
-                          <div className="text-sm">
-                            <span className="text-gray-500">Engagement: </span>
-                            <span className="font-medium">{(video.engagement_rate * 100).toFixed(2)}%</span>
-                          </div>
-                          
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            onClick={() => alert(`In deinem echten Projekt öffnet sich: ${video.url}`)}
-                          >
-                            <Play className="h-4 w-4 mr-1" />
-                            Video ansehen
-                          </Button>
-                        </div>
+                        {/* Action Button */}
+                        <Button 
+                          className="w-full" 
+                          size="sm"
+                          onClick={() => window.open(video.url, '_blank')}
+                        >
+                          <Play className="h-4 w-4 mr-2" />
+                          Video ansehen
+                        </Button>
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+                    </CardContent>
+                  </Card>
+                )
+              })}
             </div>
 
-            {/* Algorithm Info */}
-            {analysisInfo && (
-              <Card className="bg-gray-50">
-                <CardHeader>
-                  <CardTitle className="text-sm">Algorithmus-Details</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-gray-600 font-mono">
-                    {analysisInfo.algorithm}
+            {/* Info Box statt Algorithm Details */}
+            <Card className="bg-gradient-to-r from-blue-50 to-purple-50 border-blue-200">
+              <CardContent className="pt-6">
+                <div className="text-center">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                    🎯 Intelligente Trend-Analyse
+                  </h3>
+                  <p className="text-gray-600 mb-4">
+                    Unsere KI analysiert nicht nur Views, sondern auch Engagement, Timing und Momentum für echte Trending-Videos.
                   </p>
-                  <p className="text-xs text-gray-500 mt-2">
-                    Analyse durchgeführt: {new Date(analysisInfo.timestamp).toLocaleString()}
-                  </p>
-                </CardContent>
-              </Card>
-            )}
+                  <div className="flex justify-center gap-6 text-sm text-gray-500">
+                    <div className="text-center">
+                      <div className="font-semibold text-blue-600">{results.length}</div>
+                      <div>Top Videos</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="font-semibold text-blue-600">{analysisInfo?.analyzed_videos || 0}</div>
+                      <div>Analysiert</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="font-semibold text-blue-600">{new Date(analysisInfo?.timestamp || '').toLocaleTimeString()}</div>
+                      <div>Letzte Analyse</div>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </div>
         )}
       </main>
+
+      {/* CSS Styles */}
+      <style jsx global>{`
+        .line-clamp-2 {
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+        }
+      `}</style>
     </div>
   )
 }
