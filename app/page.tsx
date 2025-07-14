@@ -114,6 +114,54 @@ const exportExcel = async (params: SearchParams): Promise<void> => {
   downloadFile(blob, filename);
 };
 
+// CSV-Konvertierung für Frontend-Daten
+const convertResultsToCSV = (videos: TrendingVideo[]): string => {
+  const headers = [
+    'Rank',
+    'Title', 
+    'Channel',
+    'Views',
+    'Likes',
+    'Comments',
+    'Trending Score',
+    'Age Hours',
+    'Duration',
+    'Engagement Rate',
+    'URL'
+  ].join(',')
+  
+  const rows = videos.map(video => [
+    video.rank,
+    `"${video.title.replace(/"/g, '""')}"`, // Escape quotes
+    `"${video.channel.replace(/"/g, '""')}"`,
+    video.views,
+    video.likes,
+    video.comments,
+    Math.round(video.trending_score),
+    video.age_hours,
+    video.duration_formatted,
+    (video.engagement_rate * 100).toFixed(2) + '%',
+    video.url
+  ].join(','))
+  
+  return [headers, ...rows].join('\n')
+}
+
+// CSV-Download-Funktion
+const downloadCSVContent = (csvContent: string, filename: string) => {
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+  const url = window.URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  window.URL.revokeObjectURL(url)
+  document.body.removeChild(a)
+}
+
+
+
 // Basic UI Components (ohne externe Dependencies)
 const Button = ({ 
   children, 
@@ -320,7 +368,9 @@ export default function HomePage() {
   const handleExportCSV = async () => {
     if (!results) return
     try {
-      await exportCSV({ ...searchParams, query: searchQuery })
+      const csvContent = convertResultsToCSV(results)
+      const filename = `youtube_trending_${searchQuery}_${new Date().toISOString().split('T')[0]}.csv`
+      downloadCSVContent(csvContent, filename)
     } catch (err) {
       setError(`CSV Export fehlgeschlagen: ${err}`)
     }
@@ -329,7 +379,9 @@ export default function HomePage() {
   const handleExportExcel = async () => {
     if (!results) return
     try {
-      await exportExcel({ ...searchParams, query: searchQuery })
+      const csvContent = convertResultsToCSV(results)
+      const filename = `youtube_trending_${searchQuery}_${new Date().toISOString().split('T')[0]}.csv`
+      downloadCSVContent(csvContent, filename)
     } catch (err) {
       setError(`Excel Export fehlgeschlagen: ${err}`)
     }
