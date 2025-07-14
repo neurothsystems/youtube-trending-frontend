@@ -61,17 +61,6 @@ const analyzeVideos = async (params: SearchParams): Promise<AnalyzeResponse> => 
   return await response.json();
 };
 
-const downloadFile = (blob: Blob, filename: string) => {
-  const url = window.URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  window.URL.revokeObjectURL(url);
-  document.body.removeChild(a);
-};
-
 // CSV-Konvertierung für Frontend-Daten
 const convertResultsToCSV = (videos: TrendingVideo[]): string => {
   const headers = [
@@ -117,8 +106,6 @@ const downloadCSVContent = (csvContent: string, filename: string) => {
   window.URL.revokeObjectURL(url)
   document.body.removeChild(a)
 }
-
-
 
 // Basic UI Components (ohne externe Dependencies)
 const Button = ({ 
@@ -306,7 +293,7 @@ export default function HomePage() {
       const response = await analyzeVideos(params)
       
       if (response.success) {
-        setResults(response.top_videos)
+        setResults(response.top_videos) // Backend-Sortierung vertrauen - keine zusätzliche Sortierung!
         setAnalysisInfo({
           analyzed_videos: response.analyzed_videos,
           algorithm: response.algorithm,
@@ -326,6 +313,7 @@ export default function HomePage() {
   const handleExportCSV = async () => {
     if (!results) return
     try {
+      // Export Frontend-Daten - was User sieht
       const csvContent = convertResultsToCSV(results)
       const filename = `youtube_trending_${searchQuery}_${new Date().toISOString().split('T')[0]}.csv`
       downloadCSVContent(csvContent, filename)
@@ -337,6 +325,7 @@ export default function HomePage() {
   const handleExportExcel = async () => {
     if (!results) return
     try {
+      // Export Frontend-Daten als CSV (Excel-Feature für Phase C)
       const csvContent = convertResultsToCSV(results)
       const filename = `youtube_trending_${searchQuery}_${new Date().toISOString().split('T')[0]}.csv`
       downloadCSVContent(csvContent, filename)
