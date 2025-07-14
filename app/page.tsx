@@ -72,48 +72,6 @@ const downloadFile = (blob: Blob, filename: string) => {
   document.body.removeChild(a);
 };
 
-const exportCSV = async (params: SearchParams): Promise<void> => {
-  const url = new URL('/export/csv', API_BASE);
-  
-  url.searchParams.append('query', params.query);
-  url.searchParams.append('days', (params.days || 2).toString());
-  url.searchParams.append('top_count', (params.top_count || 10).toString());
-  
-  if (params.min_duration) {
-    url.searchParams.append('min_duration', params.min_duration.toString());
-  }
-
-  const response = await fetch(url.toString());
-  if (!response.ok) {
-    throw new Error(`Export failed: ${response.status}`);
-  }
-  
-  const blob = await response.blob();
-  const filename = `youtube_trending_${params.query}_${new Date().toISOString().split('T')[0]}.csv`;
-  downloadFile(blob, filename);
-};
-
-const exportExcel = async (params: SearchParams): Promise<void> => {
-  const url = new URL('/export/excel', API_BASE);
-  
-  url.searchParams.append('query', params.query);
-  url.searchParams.append('days', (params.days || 2).toString());
-  url.searchParams.append('top_count', (params.top_count || 10).toString());
-  
-  if (params.min_duration) {
-    url.searchParams.append('min_duration', params.min_duration.toString());
-  }
-
-  const response = await fetch(url.toString());
-  if (!response.ok) {
-    throw new Error(`Export failed: ${response.status}`);
-  }
-  
-  const blob = await response.blob();
-  const filename = `youtube_trending_${params.query}_${new Date().toISOString().split('T')[0]}.xlsx`;
-  downloadFile(blob, filename);
-};
-
 // CSV-Konvertierung für Frontend-Daten
 const convertResultsToCSV = (videos: TrendingVideo[]): string => {
   const headers = [
