@@ -617,10 +617,10 @@ export default function HomePage() {
 
             {/* Video Results - Grid Layout */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {results.map((video, index) => {
+              {results.map((video) => {
                 const normalizedScore = parseFloat(calculateNormalizedScore(video.trending_score, results[0]?.trending_score || 1))
                 return (
-                  <Card key={index} className="hover:shadow-xl transition-all duration-300 hover:-translate-y-1 overflow-hidden">
+                  <Card key={video.url} className="hover:shadow-xl transition-all duration-300 hover:-translate-y-1 overflow-hidden">
                     <CardContent className="p-0">
                       {/* Rank & Score Header */}
                       <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-3 flex justify-between items-center">
@@ -637,6 +637,7 @@ export default function HomePage() {
 
                       {/* Thumbnail */}
                       <div className="relative aspect-video bg-gray-200">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img 
                           src={video.thumbnail || `https://img.youtube.com/vi/${video.url.split('v=')[1]?.split('&')[0]}/maxresdefault.jpg`}
                           alt={video.title}
