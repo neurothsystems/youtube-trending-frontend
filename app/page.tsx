@@ -4,7 +4,7 @@ import React, { useState } from 'react'
 import { Search, TrendingUp, Download, Play, Clock, ThumbsUp, MessageCircle, Globe, Brain, BarChart3, Zap, FlaskConical, Filter } from 'lucide-react'
 
 // API Configuration
-const API_BASE = 'https://youtube-trending-api-kc53.onrender.com'
+const API_BASE = 'https://api.topmetric.ai'
 
 // Interfaces
 interface TrendingVideo {
