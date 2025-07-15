@@ -1,10 +1,12 @@
 'use client'
 
 import React, { useState } from 'react'
-import { Search, TrendingUp, Download, Play, Clock, ThumbsUp, MessageCircle, Globe, Brain, BarChart3, Zap, FlaskConical } from 'lucide-react'
+import { Search, TrendingUp, Download, Play, Clock, ThumbsUp, MessageCircle, Globe, Brain, BarChart3, Zap, FlaskConical, Filter } from 'lucide-react'
 
+// API Configuration
 const API_BASE = 'https://youtube-trending-api-kc53.onrender.com'
 
+// Interfaces
 interface TrendingVideo {
   rank: number;
   title: string;
@@ -30,7 +32,6 @@ interface SearchParams {
   min_duration?: number;
   region?: string;
   algorithm?: string;
-  confidence?: number;
 }
 
 interface AlgorithmInfo {
@@ -39,13 +40,6 @@ interface AlgorithmInfo {
   freshness_exponent?: number;
   features?: string[];
   [key: string]: unknown;
-}
-
-interface AnalysisInfo {
-  analyzed_videos: number;
-  timestamp: string;
-  algorithm_used: string;
-  algorithm_info: AlgorithmInfo;
 }
 
 interface AnalyzeResponse {
@@ -69,6 +63,13 @@ interface AlgorithmComparison {
     }>;
     algorithm_info: AlgorithmInfo;
   };
+}
+
+interface AnalysisInfo {
+  analyzed_videos: number;
+  timestamp: string;
+  algorithm_used: string;
+  algorithm_info: AlgorithmInfo;
 }
 
 // Algorithm Options
@@ -99,6 +100,14 @@ const ALGORITHMS = {
   }
 }
 
+// KORRIGIERT: Qualitätsfilter statt verwirrenden Confidence-Parameter
+const QUALITY_FILTERS = {
+  'alle': { min_confidence: 0.0, label: '🌍 Alle Videos', description: 'Zeige alle gefundenen Videos' },
+  'wenig_spam': { min_confidence: 0.4, label: '🛡️ Weniger Spam (40%+)', description: 'Filtere offensichtlichen Spam heraus' },
+  'gute_qualitaet': { min_confidence: 0.6, label: '👍 Gute Qualität (60%+)', description: 'Nur vertrauenswürdige Videos' },
+  'premium': { min_confidence: 0.8, label: '💎 Premium (80%+)', description: 'Nur hochwertigste Videos' }
+}
+
 // API Functions
 const analyzeVideos = async (params: SearchParams): Promise<AnalyzeResponse> => {
   const url = new URL('/analyze', API_BASE);
@@ -110,11 +119,17 @@ const analyzeVideos = async (params: SearchParams): Promise<AnalyzeResponse> => 
   
   if (params.min_duration) url.searchParams.append('min_duration', params.min_duration.toString());
   if (params.region) url.searchParams.append('region', params.region);
-  if (params.confidence) url.searchParams.append('confidence', params.confidence.toString());
+  // ENTFERNT: confidence parameter (machte keinen Sinn als Suchparameter)
+
+  console.log('🔍 API Request URL:', url.toString());
 
   const response = await fetch(url.toString());
   if (!response.ok) throw new Error(`API Error: ${response.status}`);
-  return await response.json();
+  
+  const data = await response.json();
+  console.log('📊 API Response:', data);
+  
+  return data;
 };
 
 const compareAlgorithms = async (query: string, region: string) => {
@@ -122,9 +137,15 @@ const compareAlgorithms = async (query: string, region: string) => {
   url.searchParams.append('query', query);
   url.searchParams.append('region', region);
 
+  console.log('🧪 A/B Test URL:', url.toString());
+
   const response = await fetch(url.toString());
-  if (!response.ok) throw new Error(`API Error: ${response.status}`);
-  return await response.json();
+  if (!response.ok) throw new Error(`A/B Test Error: ${response.status}`);
+  
+  const data = await response.json();
+  console.log('📈 A/B Test Response:', data);
+  
+  return data;
 };
 
 // Utility Functions
@@ -145,6 +166,14 @@ const getConfidenceColor = (confidence: number) => {
   if (confidence >= 0.8) return 'text-green-600'
   if (confidence >= 0.6) return 'text-yellow-600'
   return 'text-red-600'
+}
+
+// KORRIGIERT: Filter-Funktion für Confidence
+const filterVideosByQuality = (videos: TrendingVideo[], qualityLevel: string): TrendingVideo[] => {
+  const filter = QUALITY_FILTERS[qualityLevel as keyof typeof QUALITY_FILTERS];
+  if (!filter) return videos;
+  
+  return videos.filter(video => video.confidence >= filter.min_confidence);
 }
 
 // UI Components
@@ -191,7 +220,7 @@ const Badge = ({ children, className = '' }: { children: React.ReactNode; classN
   </div>
 );
 
-export default function ModularHomePage() {
+export default function CorrectedFrontend() {
   const [searchQuery, setSearchQuery] = useState('')
   const [searchParams, setSearchParams] = useState<SearchParams>({
     query: '',
@@ -199,46 +228,74 @@ export default function ModularHomePage() {
     top_count: 12,
     min_duration: 4,
     region: 'DE',
-    algorithm: 'regional',
-    confidence: 0.5
+    algorithm: 'regional'
   })
-  const [results, setResults] = useState<TrendingVideo[] | null>(null)
+  
+  // NEU: Separate State für Qualitätsfilter (NACH der Suche)
+  const [qualityFilter, setQualityFilter] = useState<string>('alle')
+  const [rawResults, setRawResults] = useState<TrendingVideo[] | null>(null) // Alle Ergebnisse
+  const [filteredResults, setFilteredResults] = useState<TrendingVideo[] | null>(null) // Gefilterte Ergebnisse
+  
   const [algorithmComparison, setAlgorithmComparison] = useState<AlgorithmComparison | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [analysisInfo, setAnalysisInfo] = useState<AnalysisInfo | null>(null)
   const [showComparison, setShowComparison] = useState(false)
 
+  // KORRIGIERT: Normale Suche ohne verwirrenden Confidence-Parameter
   const handleSearch = async () => {
     if (!searchQuery.trim()) return
     
     setLoading(true)
     setError(null)
-    setResults(null)
+    setRawResults(null)
+    setFilteredResults(null)
     setAlgorithmComparison(null)
+    setShowComparison(false)
     
     try {
       const params = { ...searchParams, query: searchQuery }
       const response = await analyzeVideos(params)
       
       if (response.success) {
-        setResults(response.top_videos)
+        const processedVideos = (response.top_videos || []).map((video, index) => ({
+          ...video,
+          rank: video.rank || (index + 1),
+          normalized_score: video.normalized_score || ((video.trending_score / (response.top_videos[0]?.trending_score || 1)) * 10),
+          confidence: video.confidence || 0.5,
+          algorithm_version: video.algorithm_version || response.algorithm_used || 'unknown'
+        }));
+
+        setRawResults(processedVideos)
+        // Sofort filtern basierend auf aktueller Qualitätsauswahl
+        setFilteredResults(filterVideosByQuality(processedVideos, qualityFilter))
+        
         setAnalysisInfo({
-          analyzed_videos: response.analyzed_videos,
-          timestamp: response.timestamp,
-          algorithm_used: response.algorithm_used,
-          algorithm_info: response.algorithm_info
+          analyzed_videos: response.analyzed_videos || 0,
+          timestamp: response.timestamp || new Date().toISOString(),
+          algorithm_used: response.algorithm_used || searchParams.algorithm || 'unknown',
+          algorithm_info: response.algorithm_info || { version: 'unknown' }
         })
       } else {
-        setError('Suche fehlgeschlagen. Bitte versuche es erneut.')
+        throw new Error('API returned success: false')
       }
     } catch (err) {
-      setError(`Fehler bei der Suche: ${err}`)
+      console.error('🚨 Search Error:', err);
+      setError(`Fehler bei der Suche: ${err instanceof Error ? err.message : 'Unbekannter Fehler'}`)
     }
     
     setLoading(false)
   }
 
+  // NEU: Qualitätsfilter ändern (NACH der Suche)
+  const handleQualityFilterChange = (newQualityLevel: string) => {
+    setQualityFilter(newQualityLevel)
+    if (rawResults) {
+      setFilteredResults(filterVideosByQuality(rawResults, newQualityLevel))
+    }
+  }
+
+  // A/B Testing bleibt gleich
   const handleAlgorithmComparison = async () => {
     if (!searchQuery.trim()) return
     
@@ -251,10 +308,14 @@ export default function ModularHomePage() {
       if (response.success) {
         setAlgorithmComparison(response.algorithm_comparison)
         setShowComparison(true)
-        setResults(null)
+        setRawResults(null)
+        setFilteredResults(null)
+      } else {
+        throw new Error('Algorithm comparison failed')
       }
     } catch (err) {
-      setError(`Algorithmus-Vergleich fehlgeschlagen: ${err}`)
+      console.error('🚨 A/B Test Error:', err);
+      setError(`Algorithmus-Vergleich fehlgeschlagen: ${err instanceof Error ? err.message : 'Unbekannter Fehler'}`)
     }
     
     setLoading(false)
@@ -280,11 +341,11 @@ export default function ModularHomePage() {
               <Brain className="h-8 w-8 text-blue-600" />
               <h1 className="text-2xl font-bold text-gray-900">
                 YouTube Trending Analyzer
-                <Badge className="ml-2 bg-purple-100 text-purple-800">Modular V4.0</Badge>
+                <Badge className="ml-2 bg-green-100 text-green-800">Korrigiert V4.1</Badge>
               </h1>
             </div>
-            <Button variant="outline" onClick={() => window.open('https://youtube-trending-api-kc53.onrender.com', '_blank')}>
-              🔧 System Test
+            <Button variant="outline" onClick={() => window.open(API_BASE, '_blank')}>
+              🔧 Backend Test
             </Button>
           </div>
         </div>
@@ -292,14 +353,13 @@ export default function ModularHomePage() {
 
       <main className="max-w-7xl mx-auto px-4 py-8">
         {/* Hero Section */}
-        {!results && !algorithmComparison && (
+        {!filteredResults && !algorithmComparison && (
           <div className="text-center py-12 mb-12">
             <h2 className="text-5xl font-bold text-gray-900 mb-4">
-              <span className="text-blue-600">Modulare</span> Algorithmus-Engine
+              <span className="text-blue-600">Korrigierte</span> Algorithmus-Engine
             </h2>
             <p className="text-xl text-gray-600 mb-8 max-w-3xl mx-auto">
-              Teste verschiedene Trending-Algorithmen und finde die optimale Strategie für deine Suche.
-              Regionale Optimierung, Anti-Spam-Filter und experimentelle Features.
+              Jetzt ohne verwirrenden Confidence-Parameter! Qualitätsfilter funktioniert NACH der Suche.
             </p>
             
             <div className="flex justify-center gap-8 text-sm text-gray-500 mb-8">
@@ -308,12 +368,12 @@ export default function ModularHomePage() {
                 4 Algorithmus-Strategien
               </div>
               <div className="flex items-center gap-2">
-                <BarChart3 className="h-4 w-4" />
-                A/B Testing Support
+                <Filter className="h-4 w-4" />
+                Qualitätsfilter NACH Suche
               </div>
               <div className="flex items-center gap-2">
                 <Zap className="h-4 w-4" />
-                Anti-Spam-Filterung
+                Logische Parameter
               </div>
             </div>
           </div>
@@ -389,8 +449,8 @@ export default function ModularHomePage() {
                 </Button>
               </div>
 
-              {/* Advanced Options */}
-              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+              {/* KORRIGIERT: Suchparameter ohne verwirrenden Confidence */}
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                 <div>
                   <label className="text-sm font-medium">Zeitraum</label>
                   <select 
@@ -449,20 +509,6 @@ export default function ModularHomePage() {
                   </select>
                 </div>
 
-                <div>
-                  <label className="text-sm font-medium">Confidence</label>
-                  <select 
-                    className="w-full mt-1 p-2 border rounded"
-                    value={searchParams.confidence}
-                    onChange={(e) => setSearchParams(prev => ({ ...prev, confidence: Number(e.target.value) }))}
-                  >
-                    <option value={0.3}>Niedrig (0.3)</option>
-                    <option value={0.5}>Medium (0.5)</option>
-                    <option value={0.7}>Hoch (0.7)</option>
-                    <option value={0.9}>Sehr hoch (0.9)</option>
-                  </select>
-                </div>
-
                 <div className="flex items-end">
                   <Button 
                     variant="outline" 
@@ -474,8 +520,7 @@ export default function ModularHomePage() {
                       top_count: 12,
                       min_duration: 4,
                       region: 'DE',
-                      algorithm: 'regional',
-                      confidence: 0.5
+                      algorithm: 'regional'
                     })}
                   >
                     Reset
@@ -486,11 +531,53 @@ export default function ModularHomePage() {
           </div>
         </Card>
 
+        {/* NEU: Qualitätsfilter NACH der Suche */}
+        {rawResults && (
+          <Card className="mb-8 border-green-200 bg-green-50">
+            <div className="p-6">
+              <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                <Filter className="h-5 w-5" />
+                ✅ Qualitätsfilter (funktioniert NACH der Suche)
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                {Object.entries(QUALITY_FILTERS).map(([key, filter]) => {
+                  const isSelected = qualityFilter === key;
+                  return (
+                    <div
+                      key={key}
+                      onClick={() => handleQualityFilterChange(key)}
+                      className={`p-3 rounded-lg border-2 cursor-pointer transition-all ${
+                        isSelected 
+                          ? 'border-green-500 bg-green-100' 
+                          : 'border-gray-200 hover:border-gray-300 bg-white'
+                      }`}
+                    >
+                      <div className="font-medium text-sm">{filter.label}</div>
+                      <div className="text-xs text-gray-600 mt-1">{filter.description}</div>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="mt-4 text-sm text-green-700">
+                <strong>Zeige:</strong> {filteredResults?.length || 0} von {rawResults?.length || 0} Videos 
+                (Filter: {QUALITY_FILTERS[qualityFilter as keyof typeof QUALITY_FILTERS]?.label})
+              </div>
+            </div>
+          </Card>
+        )}
+
         {/* Error Display */}
         {error && (
           <Card className="mb-8 border-red-200 bg-red-50">
             <div className="p-6">
-              <p className="text-red-600">{error}</p>
+              <p className="text-red-600 font-semibold">🚨 {error}</p>
+              <div className="mt-2 text-sm text-red-500">
+                <strong>Debug-Hilfe:</strong>
+                <ul className="list-disc list-inside mt-1">
+                  <li>Backend-Status: <a href={API_BASE + '/test'} target="_blank" className="underline">{API_BASE}/test</a></li>
+                  <li>Browser-Konsole (F12) für Details öffnen</li>
+                </ul>
+              </div>
             </div>
           </Card>
         )}
@@ -509,7 +596,7 @@ export default function ModularHomePage() {
           </Card>
         )}
 
-        {/* Algorithm Comparison Results */}
+        {/* A/B Testing Results */}
         {algorithmComparison && (
           <div className="space-y-6">
             <Card>
@@ -537,7 +624,7 @@ export default function ModularHomePage() {
                                 #{video.rank} {video.title}
                               </span>
                               <Badge className={`${getScoreColor(video.normalized_score)} text-white`}>
-                                {video.normalized_score}/10
+                                {video.normalized_score.toFixed(1)}/10
                               </Badge>
                             </div>
                           ))}
@@ -558,7 +645,7 @@ export default function ModularHomePage() {
         )}
 
         {/* Single Algorithm Results */}
-        {results && !showComparison && (
+        {filteredResults && !showComparison && (
           <div className="space-y-6">
             {/* Results Header */}
             <Card>
@@ -571,7 +658,7 @@ export default function ModularHomePage() {
                     </h3>
                     <div className="flex flex-wrap gap-4 text-sm text-gray-600">
                       <span>📊 {analysisInfo?.analyzed_videos} Videos analysiert</span>
-                      <span>🎯 {results.length} Top Videos</span>
+                      <span>🎯 {filteredResults.length} Videos nach Filter</span>
                       <span>🧠 {ALGORITHMS[analysisInfo?.algorithm_used as keyof typeof ALGORITHMS]?.name}</span>
                       <span>{getRegionName(searchParams.region || '')}</span>
                     </div>
@@ -588,7 +675,7 @@ export default function ModularHomePage() {
 
             {/* Video Results Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {results.map((video) => (
+              {filteredResults.map((video) => (
                 <Card key={video.url} className="hover:shadow-xl transition-all duration-300 hover:-translate-y-1 overflow-hidden">
                   <div className="p-0">
                     {/* Header with Rank and Score */}
@@ -653,14 +740,6 @@ export default function ModularHomePage() {
                         </div>
                       </div>
 
-                      {/* Algorithm Info */}
-                      <div className="text-xs text-gray-500 border-t pt-2">
-                        <div className="flex justify-between">
-                          <span>Algorithm: {video.algorithm_version}</span>
-                          <span>Score: {video.trending_score.toFixed(0)}</span>
-                        </div>
-                      </div>
-
                       {/* Action Button */}
                       <Button 
                         className="w-full" 
@@ -676,25 +755,25 @@ export default function ModularHomePage() {
               ))}
             </div>
 
-            {/* Algorithm Info Box */}
-            <Card className="bg-gradient-to-r from-blue-50 to-purple-50 border-blue-200">
+            {/* Info Box */}
+            <Card className="bg-gradient-to-r from-green-50 to-blue-50 border-green-200">
               <div className="p-6">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
                   <Brain className="h-5 w-5" />
-                  Algorithmus-Details
+                  ✅ Korrigierte V4.1 - Logische Parameter
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                   <div>
-                    <span className="font-medium">Verwendeter Algorithmus:</span>
+                    <span className="font-medium">Algorithmus:</span>
                     <div className="text-blue-600">{ALGORITHMS[analysisInfo?.algorithm_used as keyof typeof ALGORITHMS]?.name}</div>
                   </div>
                   <div>
-                    <span className="font-medium">Videos analysiert:</span>
-                    <div className="text-blue-600">{analysisInfo?.analyzed_videos}</div>
+                    <span className="font-medium">Qualitätsfilter:</span>
+                    <div className="text-green-600">{QUALITY_FILTERS[qualityFilter as keyof typeof QUALITY_FILTERS]?.label}</div>
                   </div>
                   <div>
-                    <span className="font-medium">Analyse-Zeit:</span>
-                    <div className="text-blue-600">{new Date(analysisInfo?.timestamp || '').toLocaleTimeString()}</div>
+                    <span className="font-medium">Gefilterte Videos:</span>
+                    <div className="text-blue-600">{filteredResults.length} von {rawResults?.length || 0}</div>
                   </div>
                 </div>
               </div>
