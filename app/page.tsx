@@ -1,12 +1,11 @@
 'use client'
 
 import React, { useState } from 'react'
-import { Search, TrendingUp, Download, Play, Clock, ThumbsUp, MessageCircle, Globe, Brain, BarChart3, Zap, FlaskConical, Filter } from 'lucide-react'
+import Head from 'next/head'
+import { Search, TrendingUp, Download, Play, Clock, ThumbsUp, MessageCircle, Globe, BarChart3, Zap, FlaskConical, Filter } from 'lucide-react'
 
 // API Configuration
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE || 'https://api.topmetric.ai';
-
-fetch(`${API_BASE}/analyze`, ...)
+const API_BASE = 'https://api.topmetric.ai'
 
 // Interfaces
 interface TrendingVideo {
@@ -80,7 +79,7 @@ const ALGORITHMS = {
     name: '🌍 Regional-Optimiert', 
     description: 'Anti-Indien-Filter + Sprach-Boost für bessere regionale Ergebnisse',
     icon: Globe,
-    color: 'bg-blue-500'
+    color: 'bg-red-500'
   },
   'basic': { 
     name: '🔹 Basis-Algorithmus', 
@@ -102,7 +101,7 @@ const ALGORITHMS = {
   }
 }
 
-// KORRIGIERT: Qualitätsfilter statt verwirrenden Confidence-Parameter
+// Quality Filters
 const QUALITY_FILTERS = {
   'alle': { min_confidence: 0.0, label: '🌍 Alle Videos', description: 'Zeige alle gefundenen Videos' },
   'wenig_spam': { min_confidence: 0.4, label: '🛡️ Weniger Spam (40%+)', description: 'Filtere offensichtlichen Spam heraus' },
@@ -121,7 +120,6 @@ const analyzeVideos = async (params: SearchParams): Promise<AnalyzeResponse> => 
   
   if (params.min_duration) url.searchParams.append('min_duration', params.min_duration.toString());
   if (params.region) url.searchParams.append('region', params.region);
-  // ENTFERNT: confidence parameter (machte keinen Sinn als Suchparameter)
 
   console.log('🔍 API Request URL:', url.toString());
 
@@ -170,7 +168,7 @@ const getConfidenceColor = (confidence: number) => {
   return 'text-red-600'
 }
 
-// KORRIGIERT: Filter-Funktion für Confidence
+// Filter videos by quality
 const filterVideosByQuality = (videos: TrendingVideo[], qualityLevel: string): TrendingVideo[] => {
   const filter = QUALITY_FILTERS[qualityLevel as keyof typeof QUALITY_FILTERS];
   if (!filter) return videos;
@@ -189,7 +187,7 @@ const Button = ({ children, onClick, disabled = false, variant = 'default', size
 }) => {
   const baseStyles = 'inline-flex items-center justify-center rounded-md font-medium transition-colors focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50';
   const variants = {
-    default: 'bg-blue-600 text-white hover:bg-blue-700',
+    default: 'bg-red-600 text-white hover:bg-red-700',
     outline: 'border border-gray-300 bg-white text-gray-700 hover:bg-gray-50',
     secondary: 'bg-gray-100 text-gray-900 hover:bg-gray-200'
   };
@@ -222,7 +220,7 @@ const Badge = ({ children, className = '' }: { children: React.ReactNode; classN
   </div>
 );
 
-export default function CorrectedFrontend() {
+export default function TopMetricFrontend() {
   const [searchQuery, setSearchQuery] = useState('')
   const [searchParams, setSearchParams] = useState<SearchParams>({
     query: '',
@@ -233,10 +231,10 @@ export default function CorrectedFrontend() {
     algorithm: 'regional'
   })
   
-  // NEU: Separate State für Qualitätsfilter (NACH der Suche)
+  // Quality filter state
   const [qualityFilter, setQualityFilter] = useState<string>('alle')
-  const [rawResults, setRawResults] = useState<TrendingVideo[] | null>(null) // Alle Ergebnisse
-  const [filteredResults, setFilteredResults] = useState<TrendingVideo[] | null>(null) // Gefilterte Ergebnisse
+  const [rawResults, setRawResults] = useState<TrendingVideo[] | null>(null)
+  const [filteredResults, setFilteredResults] = useState<TrendingVideo[] | null>(null)
   
   const [algorithmComparison, setAlgorithmComparison] = useState<AlgorithmComparison | null>(null)
   const [loading, setLoading] = useState(false)
@@ -244,7 +242,7 @@ export default function CorrectedFrontend() {
   const [analysisInfo, setAnalysisInfo] = useState<AnalysisInfo | null>(null)
   const [showComparison, setShowComparison] = useState(false)
 
-  // KORRIGIERT: Normale Suche ohne verwirrenden Confidence-Parameter
+  // Main search function
   const handleSearch = async () => {
     if (!searchQuery.trim()) return
     
@@ -269,7 +267,6 @@ export default function CorrectedFrontend() {
         }));
 
         setRawResults(processedVideos)
-        // Sofort filtern basierend auf aktueller Qualitätsauswahl
         setFilteredResults(filterVideosByQuality(processedVideos, qualityFilter))
         
         setAnalysisInfo({
@@ -289,7 +286,7 @@ export default function CorrectedFrontend() {
     setLoading(false)
   }
 
-  // NEU: Qualitätsfilter ändern (NACH der Suche)
+  // Quality filter change
   const handleQualityFilterChange = (newQualityLevel: string) => {
     setQualityFilter(newQualityLevel)
     if (rawResults) {
@@ -297,7 +294,7 @@ export default function CorrectedFrontend() {
     }
   }
 
-  // A/B Testing bleibt gleich
+  // Algorithm comparison
   const handleAlgorithmComparison = async () => {
     if (!searchQuery.trim()) return
     
@@ -334,465 +331,485 @@ export default function CorrectedFrontend() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
-      {/* Header */}
-      <header className="bg-white/80 backdrop-blur-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Brain className="h-8 w-8 text-blue-600" />
-              <h1 className="text-2xl font-bold text-gray-900">
-                YouTube Trending Analyzer
-                <Badge className="ml-2 bg-green-100 text-green-800">Korrigiert V4.1</Badge>
-              </h1>
-            </div>
-            <Button variant="outline" onClick={() => window.open(API_BASE, '_blank')}>
-              🔧 Backend Test
-            </Button>
-          </div>
-        </div>
-      </header>
+    <>
+      <Head>
+        <title>TopMetric AI - YouTube Trending Intelligence</title>
+        <meta name="description" content="AI-powered YouTube trending analysis" />
+        
+        {/* Favicon Links */}
+        <link rel="icon" href="/favicons/favicon.ico" sizes="any" />
+        <link rel="icon" href="/favicons/favicon-16x16.png" sizes="16x16" type="image/png" />
+        <link rel="icon" href="/favicons/favicon-32x32.png" sizes="32x32" type="image/png" />
+        <link rel="apple-touch-icon" href="/favicons/apple-touch-icon.png" />
+        <link rel="manifest" href="/site.webmanifest" />
+      </Head>
 
-      <main className="max-w-7xl mx-auto px-4 py-8">
-        {/* Hero Section */}
-        {!filteredResults && !algorithmComparison && (
-          <div className="text-center py-12 mb-12">
-            <h2 className="text-5xl font-bold text-gray-900 mb-4">
-              <span className="text-blue-600">Korrigierte</span> Algorithmus-Engine
-            </h2>
-            <p className="text-xl text-gray-600 mb-8 max-w-3xl mx-auto">
-              Jetzt ohne verwirrenden Confidence-Parameter! Qualitätsfilter funktioniert NACH der Suche.
-            </p>
-            
-            <div className="flex justify-center gap-8 text-sm text-gray-500 mb-8">
-              <div className="flex items-center gap-2">
-                <Brain className="h-4 w-4" />
-                4 Algorithmus-Strategien
-              </div>
-              <div className="flex items-center gap-2">
-                <Filter className="h-4 w-4" />
-                Qualitätsfilter NACH Suche
-              </div>
-              <div className="flex items-center gap-2">
-                <Zap className="h-4 w-4" />
-                Logische Parameter
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Algorithm Selection */}
-        <Card className="mb-8">
-          <div className="p-6">
-            <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-              <Brain className="h-5 w-5" />
-              Algorithmus-Strategie wählen
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-              {Object.entries(ALGORITHMS).map(([key, alg]) => {
-                const IconComponent = alg.icon;
-                const isSelected = searchParams.algorithm === key;
-                return (
-                  <div
-                    key={key}
-                    onClick={() => setSearchParams(prev => ({ ...prev, algorithm: key }))}
-                    className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
-                      isSelected 
-                        ? 'border-blue-500 bg-blue-50' 
-                        : 'border-gray-200 hover:border-gray-300'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2 mb-2">
-                      <IconComponent className="h-5 w-5" />
-                      <span className="font-medium">{alg.name}</span>
-                    </div>
-                    <p className="text-sm text-gray-600">{alg.description}</p>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </Card>
-
-        {/* Search Section */}
-        <Card className="mb-8">
-          <div className="p-6">
-            <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-              <Search className="h-5 w-5" />
-              YouTube Trending Suche
-            </h3>
-            
-            <div className="space-y-4">
-              {/* Main Search */}
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  placeholder="z.B. künstliche intelligenz, gaming, musik..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-                  className="flex-1 px-4 py-3 border rounded-lg text-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-red-50 to-orange-50">
+        {/* Header */}
+        <header className="bg-white/80 backdrop-blur-sm border-b border-gray-200">
+          <div className="max-w-7xl mx-auto px-4 py-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <img 
+                  src="/topmetric-logo.svg" 
+                  alt="TopMetric AI" 
+                  className="h-10 w-auto text-gray-800"
                 />
-                <Button 
-                  onClick={handleSearch} 
-                  disabled={loading || !searchQuery.trim()}
-                  size="lg"
-                >
-                  {loading ? 'Analysiere...' : 'Analysieren'}
-                </Button>
-                <Button 
-                  onClick={handleAlgorithmComparison} 
-                  disabled={loading || !searchQuery.trim()}
-                  variant="secondary"
-                  size="lg"
-                >
-                  <BarChart3 className="h-4 w-4 mr-2" />
-                  A/B Test
-                </Button>
+                <div className="flex flex-col">
+                  <h1 className="text-2xl font-bold text-gray-900">
+                    TopMetric AI
+                    <Badge className="ml-2 bg-green-100 text-green-800">V4.1</Badge>
+                  </h1>
+                  <p className="text-sm text-gray-600">YouTube Trending Intelligence</p>
+                </div>
               </div>
+              <Button variant="outline" onClick={() => window.open(API_BASE, '_blank')}>
+                🔧 Backend Test
+              </Button>
+            </div>
+          </div>
+        </header>
 
-              {/* KORRIGIERT: Suchparameter ohne verwirrenden Confidence */}
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                <div>
-                  <label className="text-sm font-medium">Zeitraum</label>
-                  <select 
-                    className="w-full mt-1 p-2 border rounded"
-                    value={searchParams.days}
-                    onChange={(e) => setSearchParams(prev => ({ ...prev, days: Number(e.target.value) }))}
-                  >
-                    <option value={1}>24h</option>
-                    <option value={2}>2 Tage</option>
-                    <option value={7}>Woche</option>
-                    <option value={30}>Monat</option>
-                  </select>
+        <main className="max-w-7xl mx-auto px-4 py-8">
+          {/* Hero Section */}
+          {!filteredResults && !algorithmComparison && (
+            <div className="text-center py-12 mb-12">
+              <h2 className="text-5xl font-bold text-gray-900 mb-4">
+                <span className="text-red-600">Intelligente</span> Trend-Analyse
+              </h2>
+              <p className="text-xl text-gray-600 mb-8 max-w-3xl mx-auto">
+                Entdecke echte YouTube-Trends mit KI-gestützter Analyse. Mehr als nur Views - echtes Engagement und Momentum.
+              </p>
+              
+              <div className="flex justify-center gap-8 text-sm text-gray-500 mb-8">
+                <div className="flex items-center gap-2">
+                  <TrendingUp className="h-4 w-4" />
+                  4 Algorithmus-Strategien
                 </div>
-                
-                <div>
-                  <label className="text-sm font-medium">Anzahl</label>
-                  <select 
-                    className="w-full mt-1 p-2 border rounded"
-                    value={searchParams.top_count}
-                    onChange={(e) => setSearchParams(prev => ({ ...prev, top_count: Number(e.target.value) }))}
-                  >
-                    <option value={6}>Top 6</option>
-                    <option value={12}>Top 12</option>
-                    <option value={18}>Top 18</option>
-                    <option value={24}>Top 24</option>
-                  </select>
+                <div className="flex items-center gap-2">
+                  <Filter className="h-4 w-4" />
+                  Qualitätsfilter
                 </div>
-                
-                <div>
-                  <label className="text-sm font-medium">Min. Dauer</label>
-                  <select 
-                    className="w-full mt-1 p-2 border rounded"
-                    value={searchParams.min_duration}
-                    onChange={(e) => setSearchParams(prev => ({ ...prev, min_duration: Number(e.target.value) }))}
-                  >
-                    <option value={0}>Alle</option>
-                    <option value={60}>1+ Min</option>
-                    <option value={240}>4+ Min</option>
-                    <option value={600}>10+ Min</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="text-sm font-medium">Region</label>
-                  <select 
-                    className="w-full mt-1 p-2 border rounded"
-                    value={searchParams.region}
-                    onChange={(e) => setSearchParams(prev => ({ ...prev, region: e.target.value }))}
-                  >
-                    <option value="DE">🇩🇪 Deutschland</option>
-                    <option value="US">🇺🇸 USA</option>
-                    <option value="GB">🇬🇧 UK</option>
-                    <option value="FR">🇫🇷 Frankreich</option>
-                    <option value="ES">🇪🇸 Spanien</option>
-                    <option value="IT">🇮🇹 Italien</option>
-                  </select>
-                </div>
-
-                <div className="flex items-end">
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="w-full"
-                    onClick={() => setSearchParams({
-                      query: '',
-                      days: 2,
-                      top_count: 12,
-                      min_duration: 4,
-                      region: 'DE',
-                      algorithm: 'regional'
-                    })}
-                  >
-                    Reset
-                  </Button>
+                <div className="flex items-center gap-2">
+                  <Zap className="h-4 w-4" />
+                  Echtzeit-Analyse
                 </div>
               </div>
             </div>
-          </div>
-        </Card>
+          )}
 
-        {/* NEU: Qualitätsfilter NACH der Suche */}
-        {rawResults && (
-          <Card className="mb-8 border-green-200 bg-green-50">
+          {/* Algorithm Selection */}
+          <Card className="mb-8">
             <div className="p-6">
               <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                <Filter className="h-5 w-5" />
-                ✅ Qualitätsfilter (funktioniert NACH der Suche)
+                <BarChart3 className="h-5 w-5" />
+                Algorithmus-Strategie wählen
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                {Object.entries(QUALITY_FILTERS).map(([key, filter]) => {
-                  const isSelected = qualityFilter === key;
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                {Object.entries(ALGORITHMS).map(([key, alg]) => {
+                  const IconComponent = alg.icon;
+                  const isSelected = searchParams.algorithm === key;
                   return (
                     <div
                       key={key}
-                      onClick={() => handleQualityFilterChange(key)}
-                      className={`p-3 rounded-lg border-2 cursor-pointer transition-all ${
+                      onClick={() => setSearchParams(prev => ({ ...prev, algorithm: key }))}
+                      className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
                         isSelected 
-                          ? 'border-green-500 bg-green-100' 
-                          : 'border-gray-200 hover:border-gray-300 bg-white'
+                          ? 'border-red-500 bg-red-50' 
+                          : 'border-gray-200 hover:border-gray-300'
                       }`}
                     >
-                      <div className="font-medium text-sm">{filter.label}</div>
-                      <div className="text-xs text-gray-600 mt-1">{filter.description}</div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <IconComponent className="h-5 w-5" />
+                        <span className="font-medium">{alg.name}</span>
+                      </div>
+                      <p className="text-sm text-gray-600">{alg.description}</p>
                     </div>
                   );
                 })}
               </div>
-              <div className="mt-4 text-sm text-green-700">
-                <strong>Zeige:</strong> {filteredResults?.length || 0} von {rawResults?.length || 0} Videos 
-                (Filter: {QUALITY_FILTERS[qualityFilter as keyof typeof QUALITY_FILTERS]?.label})
-              </div>
             </div>
           </Card>
-        )}
 
-        {/* Error Display */}
-        {error && (
-          <Card className="mb-8 border-red-200 bg-red-50">
-            <div className="p-6">
-              <p className="text-red-600 font-semibold">🚨 {error}</p>
-              <div className="mt-2 text-sm text-red-500">
-                <strong>Debug-Hilfe:</strong>
-                <ul className="list-disc list-inside mt-1">
-                  <li>Backend-Status: <a href={API_BASE + '/test'} target="_blank" className="underline">{API_BASE}/test</a></li>
-                  <li>Browser-Konsole (F12) für Details öffnen</li>
-                </ul>
-              </div>
-            </div>
-          </Card>
-        )}
-
-        {/* Loading State */}
-        {loading && (
+          {/* Search Section */}
           <Card className="mb-8">
             <div className="p-6">
-              <div className="flex items-center justify-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                <span className="ml-3 text-gray-600">
-                  {showComparison ? 'Vergleiche Algorithmen...' : 'Analysiere YouTube Videos...'}
-                </span>
-              </div>
-            </div>
-          </Card>
-        )}
-
-        {/* A/B Testing Results */}
-        {algorithmComparison && (
-          <div className="space-y-6">
-            <Card>
-              <div className="p-6">
-                <h3 className="text-xl font-semibold mb-4 flex items-center gap-2">
-                  <BarChart3 className="h-5 w-5" />
-                  Algorithmus-Vergleich für &quot;{searchQuery}&quot;
-                </h3>
-                <p className="text-gray-600 mb-6">
-                  Vergleich der Top 3 Ergebnisse verschiedener Algorithmus-Strategien
-                </p>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {Object.entries(algorithmComparison).map(([algKey, algData]) => (
-                    <Card key={algKey} className="border-l-4 border-blue-500">
-                      <div className="p-4">
-                        <h4 className="font-semibold mb-3 flex items-center gap-2">
-                          {React.createElement(ALGORITHMS[algKey as keyof typeof ALGORITHMS]?.icon || BarChart3, { className: "h-4 w-4" })}
-                          {algData.name}
-                        </h4>
-                        <div className="space-y-2">
-                          {algData.top_videos.map((video, idx) => (
-                            <div key={idx} className="flex justify-between items-center text-sm">
-                              <span className="truncate flex-1 mr-2">
-                                #{video.rank} {video.title}
-                              </span>
-                              <Badge className={`${getScoreColor(video.normalized_score)} text-white`}>
-                                {video.normalized_score.toFixed(1)}/10
-                              </Badge>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </Card>
-                  ))}
-                </div>
-
-                <div className="mt-6 text-center">
-                  <Button onClick={() => setShowComparison(false)}>
-                    Zurück zur Einzelanalyse
+              <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                <Search className="h-5 w-5" />
+                YouTube Trending Suche
+              </h3>
+              
+              <div className="space-y-4">
+                {/* Main Search */}
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="z.B. künstliche intelligenz, gaming, musik..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+                    className="flex-1 px-4 py-3 border rounded-lg text-lg focus:outline-none focus:ring-2 focus:ring-red-500"
+                  />
+                  <Button 
+                    onClick={handleSearch} 
+                    disabled={loading || !searchQuery.trim()}
+                    size="lg"
+                  >
+                    {loading ? 'Analysiere...' : 'Analysieren'}
+                  </Button>
+                  <Button 
+                    onClick={handleAlgorithmComparison} 
+                    disabled={loading || !searchQuery.trim()}
+                    variant="secondary"
+                    size="lg"
+                  >
+                    <BarChart3 className="h-4 w-4 mr-2" />
+                    A/B Test
                   </Button>
                 </div>
-              </div>
-            </Card>
-          </div>
-        )}
 
-        {/* Single Algorithm Results */}
-        {filteredResults && !showComparison && (
-          <div className="space-y-6">
-            {/* Results Header */}
-            <Card>
-              <div className="p-6">
-                <div className="flex justify-between items-start">
+                {/* Search Parameters */}
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                   <div>
-                    <h3 className="text-xl font-semibold mb-2 flex items-center gap-2">
-                      <TrendingUp className="h-5 w-5" />
-                      Trending Ergebnisse für &quot;{searchQuery}&quot;
-                    </h3>
-                    <div className="flex flex-wrap gap-4 text-sm text-gray-600">
-                      <span>📊 {analysisInfo?.analyzed_videos} Videos analysiert</span>
-                      <span>🎯 {filteredResults.length} Videos nach Filter</span>
-                      <span>🧠 {ALGORITHMS[analysisInfo?.algorithm_used as keyof typeof ALGORITHMS]?.name}</span>
-                      <span>{getRegionName(searchParams.region || '')}</span>
-                    </div>
+                    <label className="text-sm font-medium">Zeitraum</label>
+                    <select 
+                      className="w-full mt-1 p-2 border rounded"
+                      value={searchParams.days}
+                      onChange={(e) => setSearchParams(prev => ({ ...prev, days: Number(e.target.value) }))}
+                    >
+                      <option value={1}>24h</option>
+                      <option value={2}>2 Tage</option>
+                      <option value={7}>Woche</option>
+                      <option value={30}>Monat</option>
+                    </select>
                   </div>
-                  <div className="flex gap-2">
-                    <Button variant="outline" size="sm">
-                      <Download className="h-4 w-4 mr-2" />
-                      CSV Export
+                  
+                  <div>
+                    <label className="text-sm font-medium">Anzahl</label>
+                    <select 
+                      className="w-full mt-1 p-2 border rounded"
+                      value={searchParams.top_count}
+                      onChange={(e) => setSearchParams(prev => ({ ...prev, top_count: Number(e.target.value) }))}
+                    >
+                      <option value={6}>Top 6</option>
+                      <option value={12}>Top 12</option>
+                      <option value={18}>Top 18</option>
+                      <option value={24}>Top 24</option>
+                    </select>
+                  </div>
+                  
+                  <div>
+                    <label className="text-sm font-medium">Min. Dauer</label>
+                    <select 
+                      className="w-full mt-1 p-2 border rounded"
+                      value={searchParams.min_duration}
+                      onChange={(e) => setSearchParams(prev => ({ ...prev, min_duration: Number(e.target.value) }))}
+                    >
+                      <option value={0}>Alle</option>
+                      <option value={60}>1+ Min</option>
+                      <option value={240}>4+ Min</option>
+                      <option value={600}>10+ Min</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-sm font-medium">Region</label>
+                    <select 
+                      className="w-full mt-1 p-2 border rounded"
+                      value={searchParams.region}
+                      onChange={(e) => setSearchParams(prev => ({ ...prev, region: e.target.value }))}
+                    >
+                      <option value="DE">🇩🇪 Deutschland</option>
+                      <option value="US">🇺🇸 USA</option>
+                      <option value="GB">🇬🇧 UK</option>
+                      <option value="FR">🇫🇷 Frankreich</option>
+                      <option value="ES">🇪🇸 Spanien</option>
+                      <option value="IT">🇮🇹 Italien</option>
+                    </select>
+                  </div>
+
+                  <div className="flex items-end">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="w-full"
+                      onClick={() => setSearchParams({
+                        query: '',
+                        days: 2,
+                        top_count: 12,
+                        min_duration: 4,
+                        region: 'DE',
+                        algorithm: 'regional'
+                      })}
+                    >
+                      Reset
                     </Button>
                   </div>
                 </div>
               </div>
-            </Card>
-
-            {/* Video Results Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredResults.map((video) => (
-                <Card key={video.url} className="hover:shadow-xl transition-all duration-300 hover:-translate-y-1 overflow-hidden">
-                  <div className="p-0">
-                    {/* Header with Rank and Score */}
-                    <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-3 flex justify-between items-center">
-                      <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center font-bold">
-                          #{video.rank}
-                        </div>
-                        <span className="text-sm opacity-90">Platz {video.rank}</span>
-                      </div>
-                      <div className="flex flex-col items-end gap-1">
-                        <Badge className={`${getScoreColor(video.normalized_score)} text-white border-none`}>
-                          {video.normalized_score.toFixed(1)}/10
-                        </Badge>
-                        <span className={`text-xs ${getConfidenceColor(video.confidence)}`}>
-                          {(video.confidence * 100).toFixed(0)}% Confidence
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Thumbnail */}
-                    <div className="relative aspect-video bg-gray-200">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img 
-                        src={`https://img.youtube.com/vi/${video.url.split('v=')[1]?.split('&')[0]}/maxresdefault.jpg`}
-                        alt={video.title}
-                        className="w-full h-full object-cover"
-                        onError={(e) => {
-                          e.currentTarget.src = 'https://via.placeholder.com/320x180/f3f4f6/9ca3af?text=YouTube+Video';
-                        }}
-                      />
-                      <div className="absolute bottom-2 right-2 bg-black/80 text-white px-2 py-1 rounded text-sm">
-                        {video.duration_formatted}
-                      </div>
-                    </div>
-
-                    {/* Video Info */}
-                    <div className="p-4 space-y-3">
-                      <h4 className="font-semibold text-gray-900 text-sm leading-tight line-clamp-2">
-                        {video.title}
-                      </h4>
-
-                      <p className="text-gray-600 text-sm">📺 {video.channel}</p>
-
-                      {/* Metrics */}
-                      <div className="grid grid-cols-2 gap-2 text-xs">
-                        <div className="flex items-center gap-1">
-                          <Play className="h-3 w-3 text-gray-400" />
-                          <span>{formatNumber(video.views)}</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <ThumbsUp className="h-3 w-3 text-gray-400" />
-                          <span>{formatNumber(video.likes)}</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <MessageCircle className="h-3 w-3 text-gray-400" />
-                          <span>{formatNumber(video.comments)}</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Clock className="h-3 w-3 text-gray-400" />
-                          <span>{video.age_hours}h alt</span>
-                        </div>
-                      </div>
-
-                      {/* Action Button */}
-                      <Button 
-                        className="w-full" 
-                        size="sm"
-                        onClick={() => window.open(video.url, '_blank')}
-                      >
-                        <Play className="h-4 w-4 mr-2" />
-                        Video ansehen
-                      </Button>
-                    </div>
-                  </div>
-                </Card>
-              ))}
             </div>
+          </Card>
 
-            {/* Info Box */}
-            <Card className="bg-gradient-to-r from-green-50 to-blue-50 border-green-200">
+          {/* Quality Filter */}
+          {rawResults && (
+            <Card className="mb-8 border-green-200 bg-green-50">
               <div className="p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                  <Brain className="h-5 w-5" />
-                  ✅ Korrigierte V4.1 - Logische Parameter
+                <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                  <Filter className="h-5 w-5" />
+                  Qualitätsfilter
                 </h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                  <div>
-                    <span className="font-medium">Algorithmus:</span>
-                    <div className="text-blue-600">{ALGORITHMS[analysisInfo?.algorithm_used as keyof typeof ALGORITHMS]?.name}</div>
-                  </div>
-                  <div>
-                    <span className="font-medium">Qualitätsfilter:</span>
-                    <div className="text-green-600">{QUALITY_FILTERS[qualityFilter as keyof typeof QUALITY_FILTERS]?.label}</div>
-                  </div>
-                  <div>
-                    <span className="font-medium">Gefilterte Videos:</span>
-                    <div className="text-blue-600">{filteredResults.length} von {rawResults?.length || 0}</div>
-                  </div>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  {Object.entries(QUALITY_FILTERS).map(([key, filter]) => {
+                    const isSelected = qualityFilter === key;
+                    return (
+                      <div
+                        key={key}
+                        onClick={() => handleQualityFilterChange(key)}
+                        className={`p-3 rounded-lg border-2 cursor-pointer transition-all ${
+                          isSelected 
+                            ? 'border-green-500 bg-green-100' 
+                            : 'border-gray-200 hover:border-gray-300 bg-white'
+                        }`}
+                      >
+                        <div className="font-medium text-sm">{filter.label}</div>
+                        <div className="text-xs text-gray-600 mt-1">{filter.description}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="mt-4 text-sm text-green-700">
+                  <strong>Zeige:</strong> {filteredResults?.length || 0} von {rawResults?.length || 0} Videos 
+                  (Filter: {QUALITY_FILTERS[qualityFilter as keyof typeof QUALITY_FILTERS]?.label})
                 </div>
               </div>
             </Card>
-          </div>
-        )}
-      </main>
+          )}
 
-      {/* CSS for line clamping */}
-      <style jsx global>{`
-        .line-clamp-2 {
-          display: -webkit-box;
-          -webkit-line-clamp: 2;
-          -webkit-box-orient: vertical;
-          overflow: hidden;
-        }
-      `}</style>
-    </div>
+          {/* Error Display */}
+          {error && (
+            <Card className="mb-8 border-red-200 bg-red-50">
+              <div className="p-6">
+                <p className="text-red-600 font-semibold">🚨 {error}</p>
+                <div className="mt-2 text-sm text-red-500">
+                  <strong>Debug-Hilfe:</strong>
+                  <ul className="list-disc list-inside mt-1">
+                    <li>Backend-Status: <a href={API_BASE + '/test'} target="_blank" className="underline">{API_BASE}/test</a></li>
+                    <li>Browser-Konsole (F12) für Details öffnen</li>
+                  </ul>
+                </div>
+              </div>
+            </Card>
+          )}
+
+          {/* Loading State */}
+          {loading && (
+            <Card className="mb-8">
+              <div className="p-6">
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600"></div>
+                  <span className="ml-3 text-gray-600">
+                    {showComparison ? 'Vergleiche Algorithmen...' : 'Analysiere YouTube Videos...'}
+                  </span>
+                </div>
+              </div>
+            </Card>
+          )}
+
+          {/* A/B Testing Results */}
+          {algorithmComparison && (
+            <div className="space-y-6">
+              <Card>
+                <div className="p-6">
+                  <h3 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                    <BarChart3 className="h-5 w-5" />
+                    Algorithmus-Vergleich für &quot;{searchQuery}&quot;
+                  </h3>
+                  <p className="text-gray-600 mb-6">
+                    Vergleich der Top 3 Ergebnisse verschiedener Algorithmus-Strategien
+                  </p>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {Object.entries(algorithmComparison).map(([algKey, algData]) => (
+                      <Card key={algKey} className="border-l-4 border-red-500">
+                        <div className="p-4">
+                          <h4 className="font-semibold mb-3 flex items-center gap-2">
+                            {React.createElement(ALGORITHMS[algKey as keyof typeof ALGORITHMS]?.icon || BarChart3, { className: "h-4 w-4" })}
+                            {algData.name}
+                          </h4>
+                          <div className="space-y-2">
+                            {algData.top_videos.map((video, idx) => (
+                              <div key={idx} className="flex justify-between items-center text-sm">
+                                <span className="truncate flex-1 mr-2">
+                                  #{video.rank} {video.title}
+                                </span>
+                                <Badge className={`${getScoreColor(video.normalized_score)} text-white`}>
+                                  {video.normalized_score.toFixed(1)}/10
+                                </Badge>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+
+                  <div className="mt-6 text-center">
+                    <Button onClick={() => setShowComparison(false)}>
+                      Zurück zur Einzelanalyse
+                    </Button>
+                  </div>
+                </div>
+              </Card>
+            </div>
+          )}
+
+          {/* Single Algorithm Results */}
+          {filteredResults && !showComparison && (
+            <div className="space-y-6">
+              {/* Results Header */}
+              <Card>
+                <div className="p-6">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h3 className="text-xl font-semibold mb-2 flex items-center gap-2">
+                        <TrendingUp className="h-5 w-5" />
+                        Trending Ergebnisse für &quot;{searchQuery}&quot;
+                      </h3>
+                      <div className="flex flex-wrap gap-4 text-sm text-gray-600">
+                        <span>📊 {analysisInfo?.analyzed_videos} Videos analysiert</span>
+                        <span>🎯 {filteredResults.length} Videos nach Filter</span>
+                        <span>🧠 {ALGORITHMS[analysisInfo?.algorithm_used as keyof typeof ALGORITHMS]?.name}</span>
+                        <span>{getRegionName(searchParams.region || '')}</span>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button variant="outline" size="sm">
+                        <Download className="h-4 w-4 mr-2" />
+                        CSV Export
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </Card>
+
+              {/* Video Results Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {filteredResults.map((video) => (
+                  <Card key={video.url} className="hover:shadow-xl transition-all duration-300 hover:-translate-y-1 overflow-hidden">
+                    <div className="p-0">
+                      {/* Header with Rank and Score */}
+                      <div className="bg-gradient-to-r from-red-600 to-orange-600 text-white p-3 flex justify-between items-center">
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center font-bold">
+                            #{video.rank}
+                          </div>
+                          <span className="text-sm opacity-90">Platz {video.rank}</span>
+                        </div>
+                        <div className="flex flex-col items-end gap-1">
+                          <Badge className={`${getScoreColor(video.normalized_score)} text-white border-none`}>
+                            {video.normalized_score.toFixed(1)}/10
+                          </Badge>
+                          <span className={`text-xs ${getConfidenceColor(video.confidence)}`}>
+                            {(video.confidence * 100).toFixed(0)}% Confidence
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Thumbnail */}
+                      <div className="relative aspect-video bg-gray-200">
+                        <img 
+                          src={`https://img.youtube.com/vi/${video.url.split('v=')[1]?.split('&')[0]}/maxresdefault.jpg`}
+                          alt={video.title}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            e.currentTarget.src = 'https://via.placeholder.com/320x180/f3f4f6/9ca3af?text=YouTube+Video';
+                          }}
+                        />
+                        <div className="absolute bottom-2 right-2 bg-black/80 text-white px-2 py-1 rounded text-sm">
+                          {video.duration_formatted}
+                        </div>
+                      </div>
+
+                      {/* Video Info */}
+                      <div className="p-4 space-y-3">
+                        <h4 className="font-semibold text-gray-900 text-sm leading-tight line-clamp-2">
+                          {video.title}
+                        </h4>
+
+                        <p className="text-gray-600 text-sm">📺 {video.channel}</p>
+
+                        {/* Metrics */}
+                        <div className="grid grid-cols-2 gap-2 text-xs">
+                          <div className="flex items-center gap-1">
+                            <Play className="h-3 w-3 text-gray-400" />
+                            <span>{formatNumber(video.views)}</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <ThumbsUp className="h-3 w-3 text-gray-400" />
+                            <span>{formatNumber(video.likes)}</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <MessageCircle className="h-3 w-3 text-gray-400" />
+                            <span>{formatNumber(video.comments)}</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Clock className="h-3 w-3 text-gray-400" />
+                            <span>{video.age_hours}h alt</span>
+                          </div>
+                        </div>
+
+                        {/* Action Button */}
+                        <Button 
+                          className="w-full" 
+                          size="sm"
+                          onClick={() => window.open(video.url, '_blank')}
+                        >
+                          <Play className="h-4 w-4 mr-2" />
+                          Video ansehen
+                        </Button>
+                      </div>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+
+              {/* Info Box */}
+              <Card className="bg-gradient-to-r from-red-50 to-orange-50 border-red-200">
+                <div className="p-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                    <TrendingUp className="h-5 w-5" />
+                    TopMetric AI - Intelligente Trend-Analyse
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                    <div>
+                      <span className="font-medium">Algorithmus:</span>
+                      <div className="text-red-600">{ALGORITHMS[analysisInfo?.algorithm_used as keyof typeof ALGORITHMS]?.name}</div>
+                    </div>
+                    <div>
+                      <span className="font-medium">Qualitätsfilter:</span>
+                      <div className="text-green-600">{QUALITY_FILTERS[qualityFilter as keyof typeof QUALITY_FILTERS]?.label}</div>
+                    </div>
+                    <div>
+                      <span className="font-medium">Gefilterte Videos:</span>
+                      <div className="text-red-600">{filteredResults.length} von {rawResults?.length || 0}</div>
+                    </div>
+                  </div>
+                </div>
+              </Card>
+            </div>
+          )}
+        </main>
+
+        {/* CSS for line clamping */}
+        <style jsx global>{`
+          .line-clamp-2 {
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+          }
+        `}</style>
+      </div>
+    </>
   )
 }
