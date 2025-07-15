@@ -4,7 +4,7 @@ import React, { useState } from 'react'
 import { Search, TrendingUp, Download, Play, Clock, ThumbsUp, MessageCircle, Globe, Brain, BarChart3, Zap, FlaskConical, Filter } from 'lucide-react'
 
 // API Configuration
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8000';
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE || 'https://api.topmetric.ai';
 
 fetch(`${API_BASE}/analyze`, ...)
 
