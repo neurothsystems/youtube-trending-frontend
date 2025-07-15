@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState } from 'react'
 import { Search, TrendingUp, Download, Play, Clock, ThumbsUp, MessageCircle, Globe, Brain, BarChart3, Zap, FlaskConical } from 'lucide-react'
 
 const API_BASE = 'https://youtube-trending-api-kc53.onrender.com'
@@ -33,11 +33,26 @@ interface SearchParams {
   confidence?: number;
 }
 
+interface AlgorithmInfo {
+  version: string;
+  engagement_factor?: number;
+  freshness_exponent?: number;
+  features?: string[];
+  [key: string]: unknown;
+}
+
+interface AnalysisInfo {
+  analyzed_videos: number;
+  timestamp: string;
+  algorithm_used: string;
+  algorithm_info: AlgorithmInfo;
+}
+
 interface AnalyzeResponse {
   success: boolean;
   query: string;
   algorithm_used: string;
-  algorithm_info: any;
+  algorithm_info: AlgorithmInfo;
   analyzed_videos: number;
   top_videos: TrendingVideo[];
   timestamp: string;
@@ -52,7 +67,7 @@ interface AlgorithmComparison {
       trending_score: number;
       normalized_score: number;
     }>;
-    algorithm_info: any;
+    algorithm_info: AlgorithmInfo;
   };
 }
 
@@ -191,7 +206,7 @@ export default function ModularHomePage() {
   const [algorithmComparison, setAlgorithmComparison] = useState<AlgorithmComparison | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [analysisInfo, setAnalysisInfo] = useState<any>(null)
+  const [analysisInfo, setAnalysisInfo] = useState<AnalysisInfo | null>(null)
   const [showComparison, setShowComparison] = useState(false)
 
   const handleSearch = async () => {
@@ -596,6 +611,7 @@ export default function ModularHomePage() {
 
                     {/* Thumbnail */}
                     <div className="relative aspect-video bg-gray-200">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img 
                         src={`https://img.youtube.com/vi/${video.url.split('v=')[1]?.split('&')[0]}/maxresdefault.jpg`}
                         alt={video.title}
