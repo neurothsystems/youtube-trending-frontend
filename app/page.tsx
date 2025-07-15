@@ -2,12 +2,26 @@
 
 import React, { useState } from 'react'
 import Head from 'next/head'
-import { Search, TrendingUp, Download, Play, Clock, ThumbsUp, MessageCircle, Globe, BarChart3, Zap, FlaskConical, Filter } from 'lucide-react'
+import { Search, TrendingUp, Download, Play, Clock, ThumbsUp, MessageCircle, Globe, BarChart3, Zap, FlaskConical, Filter, AlertCircle } from 'lucide-react'
 
 // API Configuration
-const API_BASE = 'https://api.topmetric.ai'
+const API_BASE = 'https://youtube-trending-api-kc53.onrender.com'
 
-// Interfaces
+// FIXED: Interfaces für korrekte Backend-Response
+interface RegionalRelevance {
+  score: number;
+  confidence: number;
+  explanation: string;
+  breakdown: {
+    channel_geography: number;
+    content_match: number;
+    query_boost: number;
+    anti_bias_adjustment: number;
+  };
+  region_detected?: string;
+  blacklisted: boolean;
+}
+
 interface TrendingVideo {
   rank: number;
   title: string;
@@ -24,6 +38,8 @@ interface TrendingVideo {
   engagement_rate: number;
   url: string;
   algorithm_version: string;
+  regional_relevance: RegionalRelevance;
+  blacklisted?: boolean;
 }
 
 interface SearchParams {
@@ -37,8 +53,8 @@ interface SearchParams {
 
 interface AlgorithmInfo {
   version: string;
-  engagement_factor?: number;
-  freshness_exponent?: number;
+  target_region?: string;
+  fixes_applied?: string[];
   features?: string[];
   [key: string]: unknown;
 }
@@ -47,10 +63,21 @@ interface AnalyzeResponse {
   success: boolean;
   query: string;
   algorithm_used: string;
-  algorithm_info: AlgorithmInfo;
-  analyzed_videos: number;
+  algorithm_info?: AlgorithmInfo;
+  analyzed_videos?: number;
   top_videos: TrendingVideo[];
   timestamp: string;
+  regional_insights: {
+    high_relevance_videos: number;
+    medium_relevance_videos: number;
+    low_relevance_videos: number;
+    spam_videos_filtered: number;
+    average_regional_score: number;
+  };
+  performance: {
+    processing_time_ms: number;
+    api_quota_used: number;
+  };
 }
 
 interface AlgorithmComparison {
@@ -76,8 +103,8 @@ interface AnalysisInfo {
 // Algorithm Options
 const ALGORITHMS = {
   'regional': { 
-    name: '🌍 Regional-Optimiert', 
-    description: 'Anti-Indien-Filter + Sprach-Boost für bessere regionale Ergebnisse',
+    name: '🌍 Regional-Optimiert V6.1', 
+    description: 'FIXED: Anti-Asien-Filter + Regional-Boost + Korrekte Sortierung',
     icon: Globe,
     color: 'bg-red-500'
   },
@@ -101,15 +128,41 @@ const ALGORITHMS = {
   }
 }
 
-// Quality Filters
+// FIXED: Quality Filters basierend auf regional_relevance.score
 const QUALITY_FILTERS = {
-  'alle': { min_confidence: 0.0, label: '🌍 Alle Videos', description: 'Zeige alle gefundenen Videos' },
-  'wenig_spam': { min_confidence: 0.4, label: '🛡️ Weniger Spam (40%+)', description: 'Filtere offensichtlichen Spam heraus' },
-  'gute_qualitaet': { min_confidence: 0.6, label: '👍 Gute Qualität (60%+)', description: 'Nur vertrauenswürdige Videos' },
-  'premium': { min_confidence: 0.8, label: '💎 Premium (80%+)', description: 'Nur hochwertigste Videos' }
+  'alle': { 
+    min_confidence: 0.0, 
+    min_regional_score: 0.0,
+    label: '🌍 Alle Videos', 
+    description: 'Zeige alle gefundenen Videos' 
+  },
+  'wenig_spam': { 
+    min_confidence: 0.3, 
+    min_regional_score: 0.2,
+    label: '🛡️ Weniger Spam (30%+ Conf)', 
+    description: 'Filtere offensichtlichen Spam heraus' 
+  },
+  'gute_qualitaet': { 
+    min_confidence: 0.5, 
+    min_regional_score: 0.4,
+    label: '👍 Gute Qualität (50%+ Conf)', 
+    description: 'Nur vertrauenswürdige Videos' 
+  },
+  'regional_relevant': { 
+    min_confidence: 0.6, 
+    min_regional_score: 0.6,
+    label: '🎯 Regional Relevant (60%+)', 
+    description: 'Nur regional relevante Videos' 
+  },
+  'premium': { 
+    min_confidence: 0.8, 
+    min_regional_score: 0.8,
+    label: '💎 Premium (80%+)', 
+    description: 'Nur hochwertigste Videos' 
+  }
 }
 
-// API Functions
+// FIXED: API Functions mit besserer Error-Handling
 const analyzeVideos = async (params: SearchParams): Promise<AnalyzeResponse> => {
   const url = new URL('/analyze', API_BASE);
   
@@ -118,18 +171,43 @@ const analyzeVideos = async (params: SearchParams): Promise<AnalyzeResponse> => 
   url.searchParams.append('top_count', (params.top_count || 10).toString());
   url.searchParams.append('algorithm', params.algorithm || 'regional');
   
-  if (params.min_duration) url.searchParams.append('min_duration', params.min_duration.toString());
-  if (params.region) url.searchParams.append('region', params.region);
+  // FIXED: min_duration in Minuten senden (nicht Sekunden)
+  if (params.min_duration) {
+    url.searchParams.append('min_duration', params.min_duration.toString());
+  }
+  if (params.region) {
+    url.searchParams.append('region', params.region);
+  }
 
   console.log('🔍 API Request URL:', url.toString());
 
-  const response = await fetch(url.toString());
-  if (!response.ok) throw new Error(`API Error: ${response.status}`);
-  
-  const data = await response.json();
-  console.log('📊 API Response:', data);
-  
-  return data;
+  try {
+    const response = await fetch(url.toString(), {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+    
+    const data = await response.json();
+    console.log('📊 API Response:', data);
+    
+    // FIXED: Validate response structure
+    if (!data.success) {
+      throw new Error(data.error || 'API returned success: false');
+    }
+    
+    return data;
+    
+  } catch (error) {
+    console.error('🚨 API Error:', error);
+    throw error;
+  }
 };
 
 const compareAlgorithms = async (query: string, region: string) => {
@@ -139,13 +217,25 @@ const compareAlgorithms = async (query: string, region: string) => {
 
   console.log('🧪 A/B Test URL:', url.toString());
 
-  const response = await fetch(url.toString());
-  if (!response.ok) throw new Error(`A/B Test Error: ${response.status}`);
-  
-  const data = await response.json();
-  console.log('📈 A/B Test Response:', data);
-  
-  return data;
+  try {
+    const response = await fetch(url.toString());
+    if (!response.ok) {
+      throw new Error(`A/B Test HTTP ${response.status}: ${response.statusText}`);
+    }
+    
+    const data = await response.json();
+    console.log('📈 A/B Test Response:', data);
+    
+    if (!data.success) {
+      throw new Error(data.error || 'A/B Test failed');
+    }
+    
+    return data;
+    
+  } catch (error) {
+    console.error('🚨 A/B Test Error:', error);
+    throw error;
+  }
 };
 
 // Utility Functions
@@ -155,11 +245,21 @@ const formatNumber = (num: number) => {
   return num.toString()
 }
 
+// FIXED: Score-Color basierend auf normalized_score (sollte ≤10 sein)
 const getScoreColor = (normalizedScore: number) => {
   if (normalizedScore >= 8) return 'bg-green-500'
   if (normalizedScore >= 6) return 'bg-yellow-500'
   if (normalizedScore >= 4) return 'bg-orange-500'
   return 'bg-red-500'
+}
+
+// FIXED: Regional-Relevance-Color
+const getRegionalRelevanceColor = (score: number) => {
+  if (score >= 0.8) return 'bg-green-500'
+  if (score >= 0.6) return 'bg-yellow-500'
+  if (score >= 0.4) return 'bg-orange-500'
+  if (score >= 0.2) return 'bg-red-400'
+  return 'bg-gray-500'
 }
 
 const getConfidenceColor = (confidence: number) => {
@@ -168,12 +268,34 @@ const getConfidenceColor = (confidence: number) => {
   return 'text-red-600'
 }
 
-// Filter videos by quality
+// FIXED: Filter videos by quality (basierend auf regional_relevance)
 const filterVideosByQuality = (videos: TrendingVideo[], qualityLevel: string): TrendingVideo[] => {
   const filter = QUALITY_FILTERS[qualityLevel as keyof typeof QUALITY_FILTERS];
   if (!filter) return videos;
   
-  return videos.filter(video => video.confidence >= filter.min_confidence);
+  return videos.filter(video => {
+    const confidence = video.regional_relevance?.confidence || 0;
+    const regionalScore = video.regional_relevance?.score || 0;
+    const isBlacklisted = video.regional_relevance?.blacklisted || false;
+    
+    return !isBlacklisted && 
+           confidence >= filter.min_confidence && 
+           regionalScore >= filter.min_regional_score;
+  });
+}
+
+// FIXED: Fallback-Sortierung für Frontend
+const sortVideosByTrendingScore = (videos: TrendingVideo[]): TrendingVideo[] => {
+  return [...videos].sort((a, b) => {
+    // Primär nach trending_score
+    if (b.trending_score !== a.trending_score) {
+      return b.trending_score - a.trending_score;
+    }
+    // Sekundär nach regional_relevance bei Gleichstand
+    const aRegional = a.regional_relevance?.score || 0;
+    const bRegional = b.regional_relevance?.score || 0;
+    return bRegional - aRegional;
+  });
 }
 
 // UI Components
@@ -231,20 +353,23 @@ export default function TopMetricFrontend() {
     algorithm: 'regional'
   })
   
-  // Quality filter state
+  // FIXED: State für bessere Error-Handling
   const [qualityFilter, setQualityFilter] = useState<string>('alle')
   const [rawResults, setRawResults] = useState<TrendingVideo[] | null>(null)
   const [filteredResults, setFilteredResults] = useState<TrendingVideo[] | null>(null)
-  
   const [algorithmComparison, setAlgorithmComparison] = useState<AlgorithmComparison | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [analysisInfo, setAnalysisInfo] = useState<AnalysisInfo | null>(null)
   const [showComparison, setShowComparison] = useState(false)
+  const [apiCallsMade, setApiCallsMade] = useState(0)
 
-  // Main search function
+  // FIXED: Main search function mit besserem Error-Handling
   const handleSearch = async () => {
-    if (!searchQuery.trim()) return
+    if (!searchQuery.trim()) {
+      setError('Bitte geben Sie einen Suchbegriff ein');
+      return;
+    }
     
     setLoading(true)
     setError(null)
@@ -255,48 +380,81 @@ export default function TopMetricFrontend() {
     
     try {
       const params = { ...searchParams, query: searchQuery }
-      const response = await analyzeVideos(params)
+      console.log('🔍 Search Params:', params);
       
-      if (response.success) {
-        const processedVideos = (response.top_videos || []).map((video, index) => ({
+      const response = await analyzeVideos(params)
+      console.log('📊 Full Response:', response);
+      
+      if (response.success && response.top_videos) {
+        // FIXED: Prozessiere Videos mit korrekten Datenstrukturen
+        const processedVideos = response.top_videos.map((video, index) => ({
           ...video,
           rank: video.rank || (index + 1),
-          normalized_score: video.normalized_score || ((video.trending_score / (response.top_videos[0]?.trending_score || 1)) * 10),
-          confidence: video.confidence || 0.5,
+          // FIXED: Fallback für fehlende regional_relevance
+          regional_relevance: video.regional_relevance || {
+            score: 0.3,
+            confidence: 0.5,
+            explanation: 'Nicht analysiert',
+            breakdown: {
+              channel_geography: 0,
+              content_match: 0,
+              query_boost: 0,
+              anti_bias_adjustment: 0
+            },
+            blacklisted: false
+          },
+          // FIXED: Fallback für normalized_score
+          normalized_score: video.normalized_score || 
+            Math.min(((video.trending_score || 0) / Math.max(response.top_videos[0]?.trending_score || 1, 1)) * 10, 10),
+          confidence: video.regional_relevance?.confidence || 0.5,
           algorithm_version: video.algorithm_version || response.algorithm_used || 'unknown'
         }));
 
-        setRawResults(processedVideos)
-        setFilteredResults(filterVideosByQuality(processedVideos, qualityFilter))
+        // FIXED: Fallback-Sortierung falls Backend falsch sortiert
+        const sortedVideos = sortVideosByTrendingScore(processedVideos);
+        
+        setRawResults(sortedVideos)
+        setFilteredResults(filterVideosByQuality(sortedVideos, qualityFilter))
+        setApiCallsMade(response.performance?.api_quota_used || 0)
         
         setAnalysisInfo({
-          analyzed_videos: response.analyzed_videos || 0,
+          analyzed_videos: response.analyzed_videos || sortedVideos.length,
           timestamp: response.timestamp || new Date().toISOString(),
           algorithm_used: response.algorithm_used || searchParams.algorithm || 'unknown',
           algorithm_info: response.algorithm_info || { version: 'unknown' }
         })
+        
+        console.log('✅ Processed Videos:', sortedVideos.length);
+        console.log('🔍 First video score:', sortedVideos[0]?.trending_score);
+        
       } else {
-        throw new Error('API returned success: false')
+        throw new Error(response.error || 'Keine Videos gefunden');
       }
     } catch (err) {
       console.error('🚨 Search Error:', err);
-      setError(`Fehler bei der Suche: ${err instanceof Error ? err.message : 'Unbekannter Fehler'}`)
+      const errorMessage = err instanceof Error ? err.message : 'Unbekannter Fehler';
+      setError(`Fehler bei der Suche: ${errorMessage}`);
     }
     
     setLoading(false)
   }
 
-  // Quality filter change
+  // FIXED: Quality filter change mit besserer Logic
   const handleQualityFilterChange = (newQualityLevel: string) => {
     setQualityFilter(newQualityLevel)
     if (rawResults) {
-      setFilteredResults(filterVideosByQuality(rawResults, newQualityLevel))
+      const filtered = filterVideosByQuality(rawResults, newQualityLevel)
+      setFilteredResults(filtered)
+      console.log(`🔍 Quality Filter: ${newQualityLevel} → ${filtered.length} videos`);
     }
   }
 
   // Algorithm comparison
   const handleAlgorithmComparison = async () => {
-    if (!searchQuery.trim()) return
+    if (!searchQuery.trim()) {
+      setError('Bitte geben Sie einen Suchbegriff ein');
+      return;
+    }
     
     setLoading(true)
     setError(null)
@@ -310,11 +468,12 @@ export default function TopMetricFrontend() {
         setRawResults(null)
         setFilteredResults(null)
       } else {
-        throw new Error('Algorithm comparison failed')
+        throw new Error(response.error || 'Algorithm comparison failed')
       }
     } catch (err) {
       console.error('🚨 A/B Test Error:', err);
-      setError(`Algorithmus-Vergleich fehlgeschlagen: ${err instanceof Error ? err.message : 'Unbekannter Fehler'}`)
+      const errorMessage = err instanceof Error ? err.message : 'Unbekannter Fehler';
+      setError(`Algorithmus-Vergleich fehlgeschlagen: ${errorMessage}`);
     }
     
     setLoading(false)
@@ -333,10 +492,9 @@ export default function TopMetricFrontend() {
   return (
     <>
       <Head>
-        <title>TopMetric AI - YouTube Trending Intelligence</title>
-        <meta name="description" content="AI-powered YouTube trending analysis" />
+        <title>TopMetric AI - YouTube Trending Intelligence V6.1 FIXED</title>
+        <meta name="description" content="AI-powered YouTube trending analysis - FIXED Version" />
         
-        {/* Favicon Links */}
         <link rel="icon" href="/favicons/favicon.ico" sizes="any" />
         <link rel="icon" href="/favicons/favicon-16x16.png" sizes="16x16" type="image/png" />
         <link rel="icon" href="/favicons/favicon-32x32.png" sizes="32x32" type="image/png" />
@@ -358,41 +516,46 @@ export default function TopMetricFrontend() {
                 <div className="flex flex-col">
                   <h1 className="text-2xl font-bold text-gray-900">
                     TopMetric AI
-                    <Badge className="ml-2 bg-green-100 text-green-800">V4.1</Badge>
+                    <Badge className="ml-2 bg-green-100 text-green-800">V6.1 FIXED</Badge>
                   </h1>
-                  <p className="text-sm text-gray-600">YouTube Trending Intelligence</p>
+                  <p className="text-sm text-gray-600">YouTube Trending Intelligence - Bugs Fixed</p>
                 </div>
               </div>
-              <Button variant="outline" onClick={() => window.open(API_BASE, '_blank')}>
-                🔧 Backend Test
-              </Button>
+              <div className="flex items-center gap-3">
+                <div className="text-sm text-gray-500">
+                  API-Aufrufe: {apiCallsMade}
+                </div>
+                <Button variant="outline" onClick={() => window.open(API_BASE, '_blank')}>
+                  🔧 Backend Test
+                </Button>
+              </div>
             </div>
           </div>
         </header>
 
         <main className="max-w-7xl mx-auto px-4 py-8">
-          {/* Hero Section */}
+          {/* FIXED: Hero Section mit Fix-Hinweisen */}
           {!filteredResults && !algorithmComparison && (
             <div className="text-center py-12 mb-12">
               <h2 className="text-5xl font-bold text-gray-900 mb-4">
-                <span className="text-red-600">Intelligente</span> Trend-Analyse
+                <span className="text-red-600">FIXED</span> Trend-Analyse
               </h2>
               <p className="text-xl text-gray-600 mb-8 max-w-3xl mx-auto">
-                Entdecke echte YouTube-Trends mit KI-gestützter Analyse. Mehr als nur Views - echtes Engagement und Momentum.
+                V6.1 FIXED: Korrekte Sortierung, Duration-Filter, Erweiterte Spam-Detection
               </p>
               
               <div className="flex justify-center gap-8 text-sm text-gray-500 mb-8">
                 <div className="flex items-center gap-2">
                   <TrendingUp className="h-4 w-4" />
-                  4 Algorithmus-Strategien
+                  Sortierung nach Trending-Score
                 </div>
                 <div className="flex items-center gap-2">
                   <Filter className="h-4 w-4" />
-                  Qualitätsfilter
+                  Duration-Filter funktioniert
                 </div>
                 <div className="flex items-center gap-2">
                   <Zap className="h-4 w-4" />
-                  Echtzeit-Analyse
+                  Asiatische Spam-Detection
                 </div>
               </div>
             </div>
@@ -444,7 +607,7 @@ export default function TopMetricFrontend() {
                 <div className="flex gap-2">
                   <input
                     type="text"
-                    placeholder="z.B. künstliche intelligenz, gaming, musik..."
+                    placeholder="z.B. musik, gaming, tech..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
@@ -468,7 +631,7 @@ export default function TopMetricFrontend() {
                   </Button>
                 </div>
 
-                {/* Search Parameters */}
+                {/* FIXED: Search Parameters mit Duration-Filter */}
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                   <div>
                     <label className="text-sm font-medium">Zeitraum</label>
@@ -506,9 +669,9 @@ export default function TopMetricFrontend() {
                       onChange={(e) => setSearchParams(prev => ({ ...prev, min_duration: Number(e.target.value) }))}
                     >
                       <option value={0}>Alle</option>
-                      <option value={60}>1+ Min</option>
-                      <option value={240}>4+ Min</option>
-                      <option value={600}>10+ Min</option>
+                      <option value={1}>1+ Min</option>
+                      <option value={4}>4+ Min</option>
+                      <option value={10}>10+ Min</option>
                     </select>
                   </div>
 
@@ -550,15 +713,15 @@ export default function TopMetricFrontend() {
             </div>
           </Card>
 
-          {/* Quality Filter */}
+          {/* FIXED: Quality Filter mit Regional-Relevance */}
           {rawResults && (
             <Card className="mb-8 border-green-200 bg-green-50">
               <div className="p-6">
                 <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
                   <Filter className="h-5 w-5" />
-                  Qualitätsfilter
+                  Qualitätsfilter (V6.1 FIXED)
                 </h3>
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                   {Object.entries(QUALITY_FILTERS).map(([key, filter]) => {
                     const isSelected = qualityFilter === key;
                     return (
@@ -589,12 +752,16 @@ export default function TopMetricFrontend() {
           {error && (
             <Card className="mb-8 border-red-200 bg-red-50">
               <div className="p-6">
-                <p className="text-red-600 font-semibold">🚨 {error}</p>
+                <div className="flex items-center gap-2 mb-2">
+                  <AlertCircle className="h-5 w-5 text-red-600" />
+                  <p className="text-red-600 font-semibold">🚨 {error}</p>
+                </div>
                 <div className="mt-2 text-sm text-red-500">
                   <strong>Debug-Hilfe:</strong>
                   <ul className="list-disc list-inside mt-1">
                     <li>Backend-Status: <a href={API_BASE + '/test'} target="_blank" className="underline">{API_BASE}/test</a></li>
                     <li>Browser-Konsole (F12) für Details öffnen</li>
+                    <li>V6.1 FIXED Version läuft auf Backend</li>
                   </ul>
                 </div>
               </div>
@@ -608,7 +775,7 @@ export default function TopMetricFrontend() {
                 <div className="flex items-center justify-center py-8">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600"></div>
                   <span className="ml-3 text-gray-600">
-                    {showComparison ? 'Vergleiche Algorithmen...' : 'Analysiere YouTube Videos...'}
+                    {showComparison ? 'Vergleiche Algorithmen (V6.1 FIXED)...' : 'Analysiere YouTube Videos (V6.1 FIXED)...'}
                   </span>
                 </div>
               </div>
@@ -622,7 +789,7 @@ export default function TopMetricFrontend() {
                 <div className="p-6">
                   <h3 className="text-xl font-semibold mb-4 flex items-center gap-2">
                     <BarChart3 className="h-5 w-5" />
-                    Algorithmus-Vergleich für &quot;{searchQuery}&quot;
+                    Algorithmus-Vergleich für &quot;{searchQuery}&quot; (V6.1 FIXED)
                   </h3>
                   <p className="text-gray-600 mb-6">
                     Vergleich der Top 3 Ergebnisse verschiedener Algorithmus-Strategien
@@ -663,7 +830,7 @@ export default function TopMetricFrontend() {
             </div>
           )}
 
-          {/* Single Algorithm Results */}
+          {/* FIXED: Single Algorithm Results */}
           {filteredResults && !showComparison && (
             <div className="space-y-6">
               {/* Results Header */}
@@ -673,13 +840,14 @@ export default function TopMetricFrontend() {
                     <div>
                       <h3 className="text-xl font-semibold mb-2 flex items-center gap-2">
                         <TrendingUp className="h-5 w-5" />
-                        Trending Ergebnisse für &quot;{searchQuery}&quot;
+                        Trending Ergebnisse für &quot;{searchQuery}&quot; (V6.1 FIXED)
                       </h3>
                       <div className="flex flex-wrap gap-4 text-sm text-gray-600">
                         <span>📊 {analysisInfo?.analyzed_videos} Videos analysiert</span>
                         <span>🎯 {filteredResults.length} Videos nach Filter</span>
                         <span>🧠 {ALGORITHMS[analysisInfo?.algorithm_used as keyof typeof ALGORITHMS]?.name}</span>
                         <span>{getRegionName(searchParams.region || '')}</span>
+                        <span>⚡ {apiCallsMade} API-Aufrufe</span>
                       </div>
                     </div>
                     <div className="flex gap-2">
@@ -692,12 +860,12 @@ export default function TopMetricFrontend() {
                 </div>
               </Card>
 
-              {/* Video Results Grid */}
+              {/* FIXED: Video Results Grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filteredResults.map((video) => (
-                  <Card key={video.url} className="hover:shadow-xl transition-all duration-300 hover:-translate-y-1 overflow-hidden">
+                {filteredResults.map((video, index) => (
+                  <Card key={video.url || index} className="hover:shadow-xl transition-all duration-300 hover:-translate-y-1 overflow-hidden">
                     <div className="p-0">
-                      {/* Header with Rank and Score */}
+                      {/* FIXED: Header mit Trend-Score und Regional-Relevance */}
                       <div className="bg-gradient-to-r from-red-600 to-orange-600 text-white p-3 flex justify-between items-center">
                         <div className="flex items-center gap-2">
                           <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center font-bold">
@@ -709,9 +877,9 @@ export default function TopMetricFrontend() {
                           <Badge className={`${getScoreColor(video.normalized_score)} text-white border-none`}>
                             {video.normalized_score.toFixed(1)}/10
                           </Badge>
-                          <span className={`text-xs ${getConfidenceColor(video.confidence)}`}>
-                            {(video.confidence * 100).toFixed(0)}% Confidence
-                          </span>
+                          <Badge className={`${getRegionalRelevanceColor(video.regional_relevance?.score || 0)} text-white border-none text-xs`}>
+                            Regional: {((video.regional_relevance?.score || 0) * 100).toFixed(0)}%
+                          </Badge>
                         </div>
                       </div>
 
@@ -728,6 +896,12 @@ export default function TopMetricFrontend() {
                         <div className="absolute bottom-2 right-2 bg-black/80 text-white px-2 py-1 rounded text-sm">
                           {video.duration_formatted}
                         </div>
+                        {/* FIXED: Spam-Warning */}
+                        {video.regional_relevance?.blacklisted && (
+                          <div className="absolute top-2 left-2 bg-red-600 text-white px-2 py-1 rounded text-xs">
+                            🚫 SPAM
+                          </div>
+                        )}
                       </div>
 
                       {/* Video Info */}
@@ -738,7 +912,7 @@ export default function TopMetricFrontend() {
 
                         <p className="text-gray-600 text-sm">📺 {video.channel}</p>
 
-                        {/* Metrics */}
+                        {/* FIXED: Metrics mit Regional-Relevance */}
                         <div className="grid grid-cols-2 gap-2 text-xs">
                           <div className="flex items-center gap-1">
                             <Play className="h-3 w-3 text-gray-400" />
@@ -754,7 +928,23 @@ export default function TopMetricFrontend() {
                           </div>
                           <div className="flex items-center gap-1">
                             <Clock className="h-3 w-3 text-gray-400" />
-                            <span>{video.age_hours}h alt</span>
+                            <span>{Math.round(video.age_hours)}h alt</span>
+                          </div>
+                        </div>
+
+                        {/* FIXED: Regional-Relevance-Info */}
+                        <div className="bg-gray-50 p-2 rounded text-xs">
+                          <div className="flex justify-between items-center">
+                            <span className="text-gray-600">Regional-Relevance:</span>
+                            <span className={`font-medium ${getConfidenceColor(video.regional_relevance?.score || 0)}`}>
+                              {video.regional_relevance?.explanation || 'Nicht analysiert'}
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-center mt-1">
+                            <span className="text-gray-600">Confidence:</span>
+                            <span className={`font-medium ${getConfidenceColor(video.regional_relevance?.confidence || 0)}`}>
+                              {((video.regional_relevance?.confidence || 0) * 100).toFixed(0)}%
+                            </span>
                           </div>
                         </div>
 
@@ -763,9 +953,10 @@ export default function TopMetricFrontend() {
                           className="w-full" 
                           size="sm"
                           onClick={() => window.open(video.url, '_blank')}
+                          disabled={video.regional_relevance?.blacklisted}
                         >
                           <Play className="h-4 w-4 mr-2" />
-                          Video ansehen
+                          {video.regional_relevance?.blacklisted ? 'Spam-Video' : 'Video ansehen'}
                         </Button>
                       </div>
                     </div>
@@ -773,14 +964,14 @@ export default function TopMetricFrontend() {
                 ))}
               </div>
 
-              {/* Info Box */}
+              {/* FIXED: Info Box mit V6.1 Details */}
               <Card className="bg-gradient-to-r from-red-50 to-orange-50 border-red-200">
                 <div className="p-6">
                   <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
                     <TrendingUp className="h-5 w-5" />
-                    TopMetric AI - Intelligente Trend-Analyse
+                    TopMetric AI - V6.1 FIXED
                   </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-sm">
                     <div>
                       <span className="font-medium">Algorithmus:</span>
                       <div className="text-red-600">{ALGORITHMS[analysisInfo?.algorithm_used as keyof typeof ALGORITHMS]?.name}</div>
@@ -790,8 +981,12 @@ export default function TopMetricFrontend() {
                       <div className="text-green-600">{QUALITY_FILTERS[qualityFilter as keyof typeof QUALITY_FILTERS]?.label}</div>
                     </div>
                     <div>
-                      <span className="font-medium">Gefilterte Videos:</span>
-                      <div className="text-red-600">{filteredResults.length} von {rawResults?.length || 0}</div>
+                      <span className="font-medium">Fixes angewendet:</span>
+                      <div className="text-blue-600">Sortierung, Duration, Spam-Detection</div>
+                    </div>
+                    <div>
+                      <span className="font-medium">Performance:</span>
+                      <div className="text-purple-600">{apiCallsMade} API-Aufrufe</div>
                     </div>
                   </div>
                 </div>
