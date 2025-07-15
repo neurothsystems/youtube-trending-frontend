@@ -1,0 +1,33 @@
+{
+  "name": "TopMetric AI - YouTube Trending Intelligence",
+  "short_name": "TopMetric AI",
+  "description": "AI-powered YouTube trending analysis platform",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#ff3600",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "icons": [
+    {
+      "src": "/favicons/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/favicons/icon-512x512.png", 
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/favicons/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    }
+  ],
+  "categories": ["analytics", "social", "productivity", "business"],
+  "lang": "de-DE",
+  "dir": "ltr"
+}
