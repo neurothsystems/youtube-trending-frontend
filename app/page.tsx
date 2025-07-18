@@ -5,7 +5,7 @@ import Head from 'next/head'
 import Image from 'next/image'
 import { 
   Search, TrendingUp, Download, Play, Clock, ThumbsUp, MessageCircle, 
-  BarChart3, Zap, Settings, Activity, Flame, Target, Brain, AlertCircle, Loader2
+  Zap, Settings, Activity, Flame, Target, Brain, AlertCircle, Loader2
 } from 'lucide-react'
 
 // V6.0 API Configuration - FIXED: Use your actual Render URL
