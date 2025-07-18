@@ -2,18 +2,16 @@
 
 import React, { useState } from 'react'
 import Head from 'next/head'
+import Image from 'next/image'
 import { 
   Search, TrendingUp, Download, Play, Clock, ThumbsUp, MessageCircle, 
-  BarChart3, Zap, Settings, Activity, Globe, Filter, ChevronRight,
-  Flame, Target, Brain, AlertCircle, CheckCircle, Loader2
+  BarChart3, Zap, Settings, Activity, Flame, Target, Brain, AlertCircle, Loader2
 } from 'lucide-react'
 
-// V6.0 API Configuration
-const API_BASE = process.env.NODE_ENV === 'production' 
-  ? 'https://api.topmetric.ai' 
-  : 'http://localhost:8000'
+// V6.0 API Configuration - FIXED: Use your actual Render URL
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE || 'https://youtube-trending-api-kc53.onrender.com'
 
-// V6.0 Interfaces
+// V6.0 Interfaces - FIXED: Proper typing
 interface V6VideoData {
   rank: number
   video_id: string
@@ -54,9 +52,9 @@ interface V6AnalysisResponse {
     deduplication_removed: number
     filter_removed: number
   }
-  scraper_stats: any
-  filter_stats: any
-  algorithm_info: any
+  scraper_stats: Record<string, unknown>
+  filter_stats: Record<string, unknown>
+  algorithm_info: Record<string, unknown>
   timestamp: string
 }
 
@@ -81,25 +79,6 @@ const V6_REGIONS = [
   { code: 'CH', name: '🇨🇭 Schweiz', flag: '🇨🇭' },
   { code: 'NL', name: '🇳🇱 Niederlande', flag: '🇳🇱' }
 ]
-
-// V6.0 Algorithm Strategies
-const V6_ALGORITHMS = {
-  'momentum_balanced': {
-    name: '🚀 MOMENTUM Balanced',
-    description: 'Ausgewogene Velocity + Engagement + Frische (Standard)',
-    velocity: 0.6, engagement: 0.3, freshness: 0.1
-  },
-  'momentum_velocity': {
-    name: '⚡ MOMENTUM Velocity',
-    description: 'Fokus auf Views/Stunde für viral content',
-    velocity: 0.8, engagement: 0.15, freshness: 0.05
-  },
-  'momentum_engagement': {
-    name: '💬 MOMENTUM Engagement',
-    description: 'Fokus auf Interaktion und Community',
-    velocity: 0.4, engagement: 0.5, freshness: 0.1
-  }
-}
 
 // V6.0 API Functions
 const analyzeV6 = async (params: SearchParams): Promise<V6AnalysisResponse> => {
@@ -127,7 +106,7 @@ const analyzeV6 = async (params: SearchParams): Promise<V6AnalysisResponse> => {
     throw new Error(data.error || 'V6.0 Analysis failed')
   }
 
-  return data
+  return data as V6AnalysisResponse
 }
 
 // Utility Functions
@@ -154,13 +133,22 @@ const getSourceIcon = (source: string) => {
 }
 
 // UI Components
-const Button = ({ children, onClick, disabled = false, variant = 'default', size = 'default', className = '' }: {
+interface ButtonProps {
   children: React.ReactNode
   onClick?: () => void
   disabled?: boolean
   variant?: 'default' | 'outline' | 'secondary' | 'danger'
   size?: 'default' | 'sm' | 'lg'
   className?: string
+}
+
+const Button: React.FC<ButtonProps> = ({ 
+  children, 
+  onClick, 
+  disabled = false, 
+  variant = 'default', 
+  size = 'default', 
+  className = '' 
 }) => {
   const baseStyles = 'inline-flex items-center justify-center rounded-md font-medium transition-colors focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50'
   const variants = {
@@ -186,13 +174,13 @@ const Button = ({ children, onClick, disabled = false, variant = 'default', size
   )
 }
 
-const Card = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
+const Card: React.FC<{ children: React.ReactNode; className?: string }> = ({ children, className = '' }) => (
   <div className={`rounded-lg border border-gray-200 bg-white shadow-sm ${className}`}>
     {children}
   </div>
 )
 
-const Badge = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
+const Badge: React.FC<{ children: React.ReactNode; className?: string }> = ({ children, className = '' }) => (
   <div className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${className}`}>
     {children}
   </div>
@@ -575,12 +563,14 @@ export default function V6TrendingAnalyzer() {
 
                       {/* Thumbnail */}
                       <div className="relative aspect-video bg-gray-200">
-                        <img 
+                        <Image 
                           src={video.thumbnail || `https://img.youtube.com/vi/${video.video_id}/maxresdefault.jpg`}
                           alt={video.title}
-                          className="w-full h-full object-cover"
+                          fill
+                          className="object-cover"
                           onError={(e) => {
-                            e.currentTarget.src = 'https://via.placeholder.com/320x180/f3f4f6/9ca3af?text=YouTube+Video';
+                            const target = e.target as HTMLImageElement;
+                            target.src = 'https://via.placeholder.com/320x180/f3f4f6/9ca3af?text=YouTube+Video';
                           }}
                         />
                         <div className="absolute bottom-2 right-2 bg-black/80 text-white px-2 py-1 rounded text-sm">
